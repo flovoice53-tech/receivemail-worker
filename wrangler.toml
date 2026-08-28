@@ -1,0 +1,15 @@
+name = "receivemail-worker"
+main = "src/index.ts"
+compatibility_date = "2026-08-09"
+
+routes = [
+  { pattern = "receivemail.dev/*", zone_name = "receivemail.dev" }
+]
+
+[triggers]
+crons = ["0 3 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "receivemail"
+database_id = "a3932944-da68-4648-b313-6c9286dedfce"

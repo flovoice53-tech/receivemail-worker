@@ -1,0 +1,21 @@
+{
+  "name": "receivemail-worker",
+  "private": true,
+  "version": "0.1.0",
+  "license": "MIT",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:create": "wrangler d1 create receivemail",
+    "db:migrate": "wrangler d1 execute receivemail --remote --file=./schema.sql",
+    "secret:set": "wrangler secret put API_TOKEN"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20250101.0",
+    "typescript": "^5.6.3",
+    "wrangler": "^4.20.0"
+  },
+  "dependencies": {
+    "postal-mime": "^2.2.7"
+  }
+}
