@@ -160,6 +160,13 @@ curl https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/messages \\
     </ul>
   </section>
 
+  <section>
+    <h2>Guides</h2>
+    <ul class="limits">
+      <li><a href="/guides/testing-verification-emails">How to test email verification flows in CI</a> — shell and Playwright recipes</li>
+    </ul>
+  </section>
+
   <footer>
     Built by the same team as <a href="https://flo-voice1.com">sms-florin</a> (rent a real phone number for SMS/OTP codes) — same idea, for email instead of SMS.
   </footer>

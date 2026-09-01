@@ -1,5 +1,6 @@
 import PostalMime from "postal-mime";
 import { LANDING_HTML } from "./landing.js";
+import { GUIDES, GUIDE_SLUGS } from "./guides.js";
 
 export interface Env {
   DB: D1Database;
@@ -170,6 +171,38 @@ export default {
 
     if (request.method === "GET" && parts.length === 0) {
       return new Response(LANDING_HTML, {
+        headers: { "content-type": "text/html;charset=utf-8" },
+      });
+    }
+
+    if (request.method === "GET" && parts.length === 1 && parts[0] === "robots.txt") {
+      return new Response(
+        "User-agent: *\nAllow: /\nDisallow: /mailboxes\nSitemap: https://receivemail.dev/sitemap.xml\n",
+        { headers: { "content-type": "text/plain;charset=utf-8" } },
+      );
+    }
+
+    if (request.method === "GET" && parts.length === 1 && parts[0] === "sitemap.xml") {
+      const urls = [
+        "https://receivemail.dev/",
+        ...GUIDE_SLUGS.map((s) => `https://receivemail.dev/guides/${s}`),
+      ];
+      const xml =
+        `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+        urls.map((u) => `<url><loc>${u}</loc></url>`).join("\n") +
+        `\n</urlset>\n`;
+      return new Response(xml, {
+        headers: { "content-type": "application/xml;charset=utf-8" },
+      });
+    }
+
+    if (
+      request.method === "GET" &&
+      parts.length === 2 &&
+      parts[0] === "guides" &&
+      Object.prototype.hasOwnProperty.call(GUIDES, parts[1])
+    ) {
+      return new Response(GUIDES[parts[1]], {
         headers: { "content-type": "text/html;charset=utf-8" },
       });
     }
