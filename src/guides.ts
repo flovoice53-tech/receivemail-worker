@@ -143,6 +143,28 @@ test('new user can verify their email', async ({ page }) => {
   await expect(page.getByText('Email verified')).toBeVisible();
 });</pre>
 
+  <h2>Or use the fixture packages</h2>
+  <p>The polling boilerplate is packaged up so you don't have to copy it:</p>
+  <pre>npm i -D playwright-receivemail   <span class="comment"># or: cypress-receivemail</span></pre>
+  <pre>import { test, expect } from 'playwright-receivemail';
+
+test('new user can verify their email', async ({ page, mailbox }) => {
+  await page.goto('/signup');
+  await page.getByLabel('Email').fill(mailbox.address);
+  await page.getByLabel('Password').fill('test-Pa55w0rd');
+  await page.getByRole('button', { name: 'Create account' }).click();
+
+  const link = await mailbox.waitForMatch(/https:\\/\\/[^\\s"]+verify[^\\s"]*/, {
+    subjectContains: 'verify',
+  });
+  await page.goto(link);
+  await expect(page.getByText('Email verified')).toBeVisible();
+});</pre>
+  <p>Cypress: <code>cy.createMailbox()</code>, then
+  <code>cy.getEmailMatch(/\\d{6}/)</code> for a code or a link regex. See
+  <a href="https://github.com/flovoice53-tech/playwright-receivemail">playwright-receivemail</a>
+  / <a href="https://github.com/flovoice53-tech/cypress-receivemail">cypress-receivemail</a>.</p>
+
   <h2>Notes</h2>
   <ul>
     <li>No API key is needed to <em>create</em> a mailbox. Reading it back needs the
