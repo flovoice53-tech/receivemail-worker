@@ -1,6 +1,7 @@
 import PostalMime from "postal-mime";
 import { LANDING_HTML } from "./landing.js";
 import { GUIDES, GUIDE_SLUGS } from "./guides.js";
+import { COMPARE, COMPARE_SLUGS } from "./compare.js";
 
 export interface Env {
   DB: D1Database;
@@ -186,6 +187,7 @@ export default {
       const urls = [
         "https://receivemail.dev/",
         ...GUIDE_SLUGS.map((s) => `https://receivemail.dev/guides/${s}`),
+        ...COMPARE_SLUGS.map((s) => `https://receivemail.dev/compare/${s}`),
       ];
       const xml =
         `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
@@ -203,6 +205,17 @@ export default {
       Object.prototype.hasOwnProperty.call(GUIDES, parts[1])
     ) {
       return new Response(GUIDES[parts[1]], {
+        headers: { "content-type": "text/html;charset=utf-8" },
+      });
+    }
+
+    if (
+      request.method === "GET" &&
+      parts.length === 2 &&
+      parts[0] === "compare" &&
+      Object.prototype.hasOwnProperty.call(COMPARE, parts[1])
+    ) {
+      return new Response(COMPARE[parts[1]], {
         headers: { "content-type": "text/html;charset=utf-8" },
       });
     }
