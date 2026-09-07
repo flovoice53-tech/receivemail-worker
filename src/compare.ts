@@ -155,8 +155,168 @@ curl -s "https://receivemail.dev/mailboxes/$addr/messages" \\
 `,
 });
 
+const MAILINATOR_ALTERNATIVE = page({
+  slug: "mailinator-alternative",
+  title: "A private, free Mailinator alternative for verification emails",
+  description:
+    "Mailinator's free inboxes are public — anyone can read them. receivemail.dev gives you a private throwaway inbox over one API call, still free, still no signup.",
+  body: `
+  <p><a href="https://www.mailinator.com">Mailinator</a> has been the go-to
+  throwaway inbox for well over a decade. The free version is genuinely useful for
+  a quick manual check: type any name <code>@mailinator.com</code>, open the public
+  inbox, read the email. For automated tests and for anything you'd rather not have
+  strangers see, though, two things get in the way — the free inboxes are
+  <strong>public and world-readable</strong>, and programmatic/API access plus
+  private domains are on the paid plans.</p>
+
+  <p><a href="/">receivemail.dev</a> covers the same "read a verification email in
+  a test" job, but every address is <strong>private to whoever created it</strong>
+  (reads are gated by a per-mailbox secret returned at creation), and API access is
+  the only interface — there's nothing to log into and nothing to pay.</p>
+
+  <h2>Side by side</h2>
+  <table>
+    <thead><tr><th></th><th>receivemail.dev</th><th>Mailinator (free)</th><th>Mailinator (paid)</th></tr></thead>
+    <tbody>
+      <tr><td>Price</td><td>Free</td><td>Free</td><td>From ~$59/mo (check current pricing)</td></tr>
+      <tr><td>Signup / account</td><td>None</td><td>None</td><td>Required</td></tr>
+      <tr><td>Inbox privacy</td><td>Private — secret required to read</td><td>Public — anyone who guesses the name reads it</td><td>Private team domain</td></tr>
+      <tr><td>API to read messages</td><td>Yes</td><td>No (web UI / RSS only)</td><td>Yes</td></tr>
+      <tr><td>Private / custom domain</td><td>No (shared domain, unguessable address)</td><td>No</td><td>Yes</td></tr>
+      <tr><td>Retention</td><td>Up to 60 min TTL</td><td>A few hours, best-effort</td><td>Configurable</td></tr>
+      <tr><td>Send email</td><td>No</td><td>No</td><td>No</td></tr>
+      <tr><td>Good for</td><td>Automated tests, CI, throwaway checks</td><td>One-off manual checks</td><td>QA teams needing a private shared domain</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Mailinator's plan names and prices change — see
+  <a href="https://www.mailinator.com/pricing.jsp">mailinator.com/pricing</a> for
+  the current numbers.</p>
+
+  <h2>Why "public inbox" matters in a test</h2>
+  <ul>
+    <li>Anyone watching <code>@mailinator.com</code> can see the verification codes
+    your test triggers — and, if your signup flow leaks anything else (names,
+    reset links), that too.</li>
+    <li>Addresses are guessable, so another user (or a bot) can land on the same
+    inbox you're using and your test reads their message instead of yours.</li>
+    <li>Some services now block <code>mailinator.com</code> outright at signup
+    because it's so well known.</li>
+  </ul>
+  <p>receivemail.dev hands you a random address on a less-burned domain and only
+  the holder of the creation secret can read it.</p>
+
+  <h2>When Mailinator is still the right call</h2>
+  <ul>
+    <li>You just want to eyeball one email by hand — the public inbox is faster than any API.</li>
+    <li>Your team wants a <strong>private shared domain</strong> everyone uses (that's the paid plan's core value).</li>
+    <li>You need messages to stick around longer than an hour.</li>
+    <li>You're already invested in Mailinator's rule-based routing / webhooks.</li>
+  </ul>
+
+  <h2>Moving a test over</h2>
+  <pre><span class="comment"># was: hit https://api.mailinator.com/... with an API token</span>
+resp=$(curl -s -X POST https://receivemail.dev/mailboxes)
+addr=$(echo "$resp" | jq -r .address)
+secret=$(echo "$resp" | jq -r .secret)
+
+<span class="comment"># ... run your signup against $addr ...</span>
+
+curl -s "https://receivemail.dev/mailboxes/$addr/messages" \\
+  -H "Authorization: Bearer $secret"</pre>
+  <p>Full shell + Playwright walkthrough:
+  <a href="/guides/testing-verification-emails">the CI testing guide</a>.</p>
+
+  <h2>Other alternatives people compare</h2>
+  <ul>
+    <li><strong>MailSlurp</strong> — a full email platform (send + receive, SMTP/IMAP, permanent inboxes). See <a href="/compare/mailslurp-alternative">the MailSlurp comparison</a>.</li>
+    <li><strong>Mailosaur</strong> — paid email <em>and</em> SMS testing for QA teams. See <a href="/compare/mailosaur-alternative">the Mailosaur comparison</a>.</li>
+    <li><strong>mail.tm / DropMail</strong> — also free, no-signup, API-accessible; similar niche to receivemail.dev with different retention and rate limits.</li>
+  </ul>
+`,
+});
+
+const MAILOSAUR_ALTERNATIVE = page({
+  slug: "mailosaur-alternative",
+  title: "A free Mailosaur alternative for email verification in tests",
+  description:
+    "Mailosaur is a paid email + SMS testing platform for QA teams. If you only need to read a verification email in an automated test, receivemail.dev does that free with no signup.",
+  body: `
+  <p><a href="https://mailosaur.com">Mailosaur</a> is a polished, paid testing
+  platform: dedicated email servers, a real domain per account, SMS testing with
+  virtual numbers, deep assertions (SPF/DKIM/DMARC checks, spam scoring, link and
+  attachment inspection), and first-party libraries for most test frameworks. For a
+  QA team that tests email and SMS seriously, it's a strong tool and this page
+  isn't trying to move you off it.</p>
+
+  <p>Plenty of projects, though, only need one thing from a tool like this: in an
+  automated test, <strong>sign up and read back the verification email</strong>.
+  For that, <a href="/">receivemail.dev</a> does the job with no account and no
+  cost — you create a disposable inbox with one unauthenticated POST and poll it
+  for messages.</p>
+
+  <h2>Side by side</h2>
+  <table>
+    <thead><tr><th></th><th>receivemail.dev</th><th>Mailosaur</th></tr></thead>
+    <tbody>
+      <tr><td>Price</td><td>Free</td><td>Paid, with a free trial (check current pricing)</td></tr>
+      <tr><td>Signup / account</td><td>None</td><td>Required</td></tr>
+      <tr><td>Receive email via API</td><td>Yes</td><td>Yes</td></tr>
+      <tr><td>SMS / phone testing</td><td>No (see <a href="https://flo-voice1.com">sms-florin</a>)</td><td>Yes</td></tr>
+      <tr><td>Dedicated domain per account</td><td>No — shared domain, random address</td><td>Yes</td></tr>
+      <tr><td>Email auth checks (SPF/DKIM/DMARC), spam score</td><td>No</td><td>Yes</td></tr>
+      <tr><td>Official framework libraries</td><td>No — plain HTTP (plus a Playwright helper)</td><td>Yes, many</td></tr>
+      <tr><td>Inbox lifetime</td><td>Up to 60 min TTL</td><td>Persistent</td></tr>
+      <tr><td>Best for</td><td>Reading a code/link in CI, hobby projects, OSS</td><td>QA teams testing email & SMS as a discipline</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Mailosaur's plans and limits change over time — see
+  <a href="https://mailosaur.com/pricing">mailosaur.com/pricing</a> for current
+  details.</p>
+
+  <h2>When receivemail.dev is enough</h2>
+  <ul>
+    <li>The assertion you actually make is "a message arrived and it contains this code/link" — nothing about headers, deliverability, or spam.</li>
+    <li>You don't want another paid tool in the stack for one test.</li>
+    <li>Contributors should be able to run the suite without credentials.</li>
+    <li>It's a side project, a demo, or an open-source repo's CI.</li>
+  </ul>
+
+  <h2>When to choose Mailosaur instead</h2>
+  <ul>
+    <li>You test <strong>SMS and email</strong> and want them in one tool.</li>
+    <li>You assert on SPF/DKIM/DMARC, spam score, or rendered HTML.</li>
+    <li>You want a dedicated domain and persistent inboxes.</li>
+    <li>You want vendor-supported libraries and a support contract.</li>
+    <li>Deliverability itself is under test, not just message content.</li>
+  </ul>
+
+  <h2>Migrating a test</h2>
+  <pre><span class="comment"># Mailosaur: new MailosaurClient(key); server + messages.get(...)</span>
+resp=$(curl -s -X POST https://receivemail.dev/mailboxes)
+addr=$(echo "$resp" | jq -r .address)
+secret=$(echo "$resp" | jq -r .secret)
+
+<span class="comment"># ... run your signup against $addr ...</span>
+
+curl -s "https://receivemail.dev/mailboxes/$addr/messages" \\
+  -H "Authorization: Bearer $secret"
+<span class="comment"># => {"messages":[{"from_address":"...","subject":"...","body_text":"..."}]}</span></pre>
+  <p>Playwright version and more detail:
+  <a href="/guides/testing-verification-emails">the CI testing guide</a>.</p>
+
+  <h2>Other alternatives people compare</h2>
+  <ul>
+    <li><strong>MailSlurp</strong> — email infrastructure API, send + receive. See <a href="/compare/mailslurp-alternative">the MailSlurp comparison</a>.</li>
+    <li><strong>Mailinator</strong> — free public inboxes, paid private domains + API. See <a href="/compare/mailinator-alternative">the Mailinator comparison</a>.</li>
+    <li><strong>Self-hosted (Mailpit, MailHog)</strong> — ideal when your own app sends the mail on the same network; not an option when a third party sends to a public address.</li>
+  </ul>
+`,
+});
+
 export const COMPARE: Record<string, string> = {
   "mailslurp-alternative": MAILSLURP_ALTERNATIVE,
+  "mailinator-alternative": MAILINATOR_ALTERNATIVE,
+  "mailosaur-alternative": MAILOSAUR_ALTERNATIVE,
 };
 
 export const COMPARE_SLUGS = Object.keys(COMPARE);
