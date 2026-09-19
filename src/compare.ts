@@ -189,7 +189,7 @@ const MAILINATOR_ALTERNATIVE = page({
     </tbody>
   </table>
   <p class="note">Mailinator's plan names and prices change — see
-  <a href="https://www.mailinator.com/pricing.jsp">mailinator.com/pricing</a> for
+  <a href="https://www.mailinator.com/pricing/">mailinator.com/pricing</a> for
   the current numbers.</p>
 
   <h2>Why "public inbox" matters in a test</h2>
