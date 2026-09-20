@@ -9,6 +9,16 @@ routes = [
 [triggers]
 crons = ["0 3 * * *"]
 
+# Enables Cloudflare Workers Logs — free-tier included, no code change needed.
+# Added 2026-09-20 after a full-site outage (every request 404ing) that
+# redeploying the exact same already-correct code fixed instantly, meaning
+# it was very likely a Cloudflare-side glitch rather than a bug here — but
+# there was no way to confirm that, since nothing was capturing runtime
+# errors/console output at the time. This just gives real logs to check
+# next time instead of guessing.
+[observability]
+enabled = true
+
 [[d1_databases]]
 binding = "DB"
 database_name = "receivemail"
