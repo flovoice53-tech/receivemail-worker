@@ -183,6 +183,37 @@ export default {
       );
     }
 
+    // Same idea as sms-florin's and otp-watch's own /llms.txt: a plain-text
+    // summary for an LLM or agent asking "what does this do and how do I use
+    // it", rather than one that has to scrape the HTML landing page.
+    if (request.method === "GET" && parts.length === 1 && parts[0] === "llms.txt") {
+      return new Response(
+        `# receivemail.dev
+
+> A real inbox for your test suite. POST to create a disposable email address, no signup, then poll it for whatever lands there.
+
+Built for the same audience as sms-florin (QA/dev, AI agents testing signup flows) — a throwaway inbox instead of a throwaway phone number.
+
+## How it works
+
+- \`POST /mailboxes\` — creates a random address (default 15min TTL, max 60min) and returns \`{address, expiresAt, secret}\`. No token required to create one.
+- \`GET /mailboxes/:address/messages\` — returns the last 50 messages for that address, authenticated with the mailbox's own \`secret\` returned at creation time (or any \`anything@receivemail.dev\` address works too — mail to any address on the domain is captured, the mailboxes table is only there to reserve one with a known expiry).
+- Rate limited: 20 creates/min/IP, 5,000 creates/day globally.
+
+## Docs
+
+- [Landing page / quickstart](https://receivemail.dev/): curl examples, full endpoint reference.
+- [Testing email verification flows in CI](https://receivemail.dev/guides/testing-verification-emails)
+
+## Related
+
+- [sms-florin](https://flo-voice1.com/llms.txt): the phone-number rental service this shares its audience with — same "receive something, expose via API" pattern for SMS instead of email.
+- [otp-watch](https://otpwatch.flo-voice1.com/llms.txt): synthetic monitoring built on top of both this and sms-florin, confirming an OTP/verification code actually arrives.
+`,
+        { headers: { "content-type": "text/plain; charset=utf-8" } },
+      );
+    }
+
     if (request.method === "GET" && parts.length === 1 && parts[0] === "sitemap.xml") {
       const urls = [
         "https://receivemail.dev/",
