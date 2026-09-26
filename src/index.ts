@@ -197,7 +197,8 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
 ## How it works
 
 - \`POST /mailboxes\` — creates a random address (default 15min TTL, max 60min) and returns \`{address, expiresAt, secret}\`. No token required to create one.
-- \`GET /mailboxes/:address/messages\` — returns the last 50 messages for that address, authenticated with the mailbox's own \`secret\` returned at creation time (or any \`anything@receivemail.dev\` address works too — mail to any address on the domain is captured, the mailboxes table is only there to reserve one with a known expiry).
+- \`GET /mailboxes/:address/messages\` — returns the last 50 messages for that address (\`from_address\`, \`subject\`, \`body_text\`, \`received_at\` in ISO 8601 UTC), authenticated with \`Authorization: Bearer <secret>\` using the mailbox's own \`secret\` from creation. Only reserved addresses can be read. Plain-text body only (no HTML, no attachments); mail is kept about 24h.
+- Free, no signup, no API key.
 - Rate limited: 20 creates/min/IP, 5,000 creates/day globally.
 
 ## Docs
@@ -298,7 +299,7 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
       if (!(await canReadMailbox(env, request, address))) return unauthorized();
 
       const mailbox = await env.DB.prepare(
-        `SELECT address, created_at, expires_at FROM mailboxes WHERE address = ?`,
+        `SELECT address, strftime('%Y-%m-%dT%H:%M:%SZ', created_at) AS created_at, expires_at FROM mailboxes WHERE address = ?`,
       )
         .bind(address)
         .first();
@@ -322,7 +323,11 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
       if (!(await canReadMailbox(env, request, address))) return unauthorized();
 
       const { results } = await env.DB.prepare(
-        `SELECT from_address, subject, body_text, received_at FROM emails WHERE mailbox = ? ORDER BY received_at DESC LIMIT 50`,
+        // received_at is stored as a zone-less UTC SQLite datetime; hand it out
+        // as ISO 8601 with a Z, since JS parses a zone-less timestamp as
+        // local time (that broke the Playwright/Cypress plugins' "only new
+        // mail" filter for anyone east of UTC, until 2026-09-26).
+        `SELECT from_address, subject, body_text, strftime('%Y-%m-%dT%H:%M:%SZ', received_at) AS received_at FROM emails WHERE mailbox = ? ORDER BY emails.received_at DESC LIMIT 50`,
       )
         .bind(address)
         .all();
@@ -347,8 +352,11 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
       .bind(now)
       .run();
 
+    // Compared as SQLite datetimes: the column holds "YYYY-MM-DD HH:MM:SS"
+    // and a raw string comparison against an ISO cutoff ("...T...") deleted
+    // same-day mail early.
     const cutoff = new Date(Date.now() - 24 * 60 * 60_000).toISOString();
-    await env.DB.prepare(`DELETE FROM emails WHERE received_at < ?`)
+    await env.DB.prepare(`DELETE FROM emails WHERE datetime(received_at) < datetime(?)`)
       .bind(cutoff)
       .run();
 
