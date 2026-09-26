@@ -47,6 +47,8 @@ function page(opts: {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${opts.title} — receivemail.dev</title>
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
+<link rel="apple-touch-icon" href="/icon.png">
 <meta name="description" content="${opts.description}">
 <link rel="canonical" href="https://receivemail.dev/compare/${opts.slug}">
 <meta property="og:title" content="${opts.title}">

@@ -4,6 +4,8 @@ export const LANDING_HTML = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>receivemail.dev — disposable email addresses via API</title>
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
+<link rel="apple-touch-icon" href="/icon.png">
 <meta name="description" content="Get a real, receiving email address with one API call. No signup, no SMTP setup. Built for testing signup flows, verification emails, and QA automation.">
 <style>
   :root {

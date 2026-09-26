@@ -3,6 +3,7 @@ import { LANDING_HTML } from "./landing.js";
 import { GUIDES, GUIDE_SLUGS } from "./guides.js";
 import { COMPARE, COMPARE_SLUGS } from "./compare.js";
 import { FAQ_HTML } from "./faq.js";
+import { ICON_PNG_BASE64, ICON_SVG } from "./icon.js";
 
 export interface Env {
   DB: D1Database;
@@ -214,6 +215,19 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
 `,
         { headers: { "content-type": "text/plain; charset=utf-8" } },
       );
+    }
+
+    if (request.method === "GET" && parts.length === 1 && parts[0] === "icon.svg") {
+      return new Response(ICON_SVG, {
+        headers: { "content-type": "image/svg+xml", "cache-control": "public, max-age=86400" },
+      });
+    }
+
+    if (request.method === "GET" && parts.length === 1 && parts[0] === "icon.png") {
+      const bytes = Uint8Array.from(atob(ICON_PNG_BASE64), (ch) => ch.charCodeAt(0));
+      return new Response(bytes, {
+        headers: { "content-type": "image/png", "cache-control": "public, max-age=86400" },
+      });
     }
 
     if (request.method === "GET" && parts.length === 1 && parts[0] === "faq") {
