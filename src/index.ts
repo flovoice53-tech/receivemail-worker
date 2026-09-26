@@ -2,6 +2,7 @@ import PostalMime from "postal-mime";
 import { LANDING_HTML } from "./landing.js";
 import { GUIDES, GUIDE_SLUGS } from "./guides.js";
 import { COMPARE, COMPARE_SLUGS } from "./compare.js";
+import { FAQ_HTML } from "./faq.js";
 
 export interface Env {
   DB: D1Database;
@@ -198,7 +199,7 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
 
 - \`POST /mailboxes\` — creates a random address (default 15min TTL, max 60min) and returns \`{address, expiresAt, secret}\`. No token required to create one.
 - \`GET /mailboxes/:address/messages\` — returns the last 50 messages for that address (\`from_address\`, \`subject\`, \`body_text\`, \`received_at\` in ISO 8601 UTC), authenticated with \`Authorization: Bearer <secret>\` using the mailbox's own \`secret\` from creation. Only reserved addresses can be read. Plain-text body only (no HTML, no attachments); mail is kept about 24h.
-- Free, no signup, no API key.
+- Free, no signup, no API key. FAQ (Playwright/Cypress recipes, limits, retention): https://receivemail.dev/faq
 - Rate limited: 20 creates/min/IP, 5,000 creates/day globally.
 
 ## Docs
@@ -215,9 +216,16 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
       );
     }
 
+    if (request.method === "GET" && parts.length === 1 && parts[0] === "faq") {
+      return new Response(FAQ_HTML, {
+        headers: { "content-type": "text/html;charset=utf-8" },
+      });
+    }
+
     if (request.method === "GET" && parts.length === 1 && parts[0] === "sitemap.xml") {
       const urls = [
         "https://receivemail.dev/",
+        "https://receivemail.dev/faq",
         ...GUIDE_SLUGS.map((s) => `https://receivemail.dev/guides/${s}`),
         ...COMPARE_SLUGS.map((s) => `https://receivemail.dev/compare/${s}`),
       ];

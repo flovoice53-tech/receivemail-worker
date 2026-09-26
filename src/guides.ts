@@ -3,7 +3,7 @@
 // mostly to be found in search for "test verification email" / "disposable
 // email API" style queries and to give the API real context.
 
-const SHARED_STYLE = `
+export const SHARED_STYLE = `
   :root {
     --bg: #0b0d10; --bg-raised: #14171b; --border: #262b31;
     --text: #e8eaed; --text-dim: #9aa4af; --accent: #5eead4;

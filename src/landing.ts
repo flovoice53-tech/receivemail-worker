@@ -163,6 +163,7 @@ curl https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/messages \\
   <section>
     <h2>Guides</h2>
     <ul class="limits">
+      <li><a href="/faq">FAQ</a> — Playwright and Cypress recipes, limits, retention</li>
       <li><a href="/guides/testing-verification-emails">How to test email verification flows in CI</a> — shell and Playwright recipes</li>
       <li><a href="/compare/mailslurp-alternative">A free MailSlurp alternative for reading verification emails in tests</a></li>
       <li><a href="/compare/mailinator-alternative">A private, free Mailinator alternative for verification emails</a></li>
