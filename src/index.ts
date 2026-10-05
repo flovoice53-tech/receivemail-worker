@@ -16,6 +16,9 @@ const MAX_TTL_MINUTES = 60;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_CREATES = 20;
 const DAILY_GLOBAL_MAX_CREATES = 5_000;
+// Our own health checks and self-tests send mail from these — excluded from
+// the "external" usage numbers in daily_stats.
+const OWN_SENDER_DOMAINS = ["flo-voice1.com", "ducemgunoiul.ro"];
 
 function randomAddress(): string {
   const local = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
@@ -64,6 +67,54 @@ function tooManyRequests(): Response {
 // as the sms-florin free-rental per-IP guard) — fine for the current low
 // traffic; revisit with a Durable Object only if this is ever actually
 // abused at volume.
+// Snapshot one UTC day into daily_stats. Must run before scheduled() prunes:
+// the cron fires at 03:00 UTC, when all of yesterday's mail and its
+// create:daily bucket still exist. INSERT OR REPLACE so a re-run is harmless.
+async function recordDailyStats(env: Env, day: string): Promise<void> {
+  const created = await env.DB.prepare(`SELECT count FROM rate_limits WHERE bucket_key = ?`)
+    .bind(`create:daily:${day}`)
+    .first<{ count: number }>();
+
+  const ownFilter = OWN_SENDER_DOMAINS.map(() => `from_address NOT LIKE ?`).join(" AND ");
+  const ownArgs = OWN_SENDER_DOMAINS.map((d) => `%@%${d}`);
+
+  const totals = await env.DB.prepare(
+    `SELECT count(*) AS n FROM emails WHERE date(received_at) = ?`,
+  )
+    .bind(day)
+    .first<{ n: number }>();
+
+  const external = await env.DB.prepare(
+    `SELECT count(*) AS n, count(DISTINCT mailbox) AS boxes FROM emails
+     WHERE date(received_at) = ? AND ${ownFilter}`,
+  )
+    .bind(day, ...ownArgs)
+    .first<{ n: number; boxes: number }>();
+
+  const { results: senders } = await env.DB.prepare(
+    `SELECT lower(substr(from_address, instr(from_address, '@') + 1)) AS domain, count(*) AS n
+     FROM emails WHERE date(received_at) = ? AND ${ownFilter}
+     GROUP BY domain ORDER BY n DESC LIMIT 15`,
+  )
+    .bind(day, ...ownArgs)
+    .all<{ domain: string; n: number }>();
+
+  await env.DB.prepare(
+    `INSERT OR REPLACE INTO daily_stats
+       (day, mailboxes_created, emails_received, external_emails, mailboxes_with_mail, top_sender_domains)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  )
+    .bind(
+      day,
+      created?.count ?? 0,
+      totals?.n ?? 0,
+      external?.n ?? 0,
+      external?.boxes ?? 0,
+      JSON.stringify(senders.map((s) => [s.domain, s.n])),
+    )
+    .run();
+}
+
 async function checkCreateRateLimit(env: Env, ip: string): Promise<boolean> {
   const now = Date.now();
   const key = `create:ip:${ip}`;
@@ -307,8 +358,18 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
         .run();
 
       // secret is only ever returned here, at creation — the caller must
-      // hold onto it to read this mailbox's messages later.
-      return Response.json({ address, expiresAt, secret }, { status: 201 });
+      // hold onto it to read this mailbox's messages later. `tip` is an extra
+      // field existing clients ignore; the ref tags clicks from the API apart
+      // from clicks on the landing page in sms-florin's attribution.
+      return Response.json(
+        {
+          address,
+          expiresAt,
+          secret,
+          tip: "Need the SMS verification code too? Real UK numbers: https://flo-voice1.com/?ref=receivemail-api",
+        },
+        { status: 201 },
+      );
     }
 
     // GET /mailboxes/:address — mailbox metadata (exists? expired?).
@@ -369,6 +430,14 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
     env: Env,
     _ctx: ExecutionContext,
   ): Promise<void> {
+    // Before any pruning below. A failure here must not stop the cleanup.
+    const yesterday = new Date(Date.now() - 24 * 60 * 60_000).toISOString().slice(0, 10);
+    try {
+      await recordDailyStats(env, yesterday);
+    } catch (err) {
+      console.error("recordDailyStats failed", err);
+    }
+
     const now = new Date().toISOString();
     await env.DB.prepare(`DELETE FROM mailboxes WHERE expires_at < ?`)
       .bind(now)

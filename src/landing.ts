@@ -141,6 +141,11 @@ curl https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/messages \\
   </section>
 
   <section>
+    <h2>Need the SMS code too?</h2>
+    <p>Plenty of signups ask for a phone number after the email. <a href="https://flo-voice1.com/?ref=receivemail-site">sms-florin</a> rents real UK numbers that receive the verification SMS — same idea as this, by API or in the browser, pay per code.</p>
+  </section>
+
+  <section>
     <h2>Endpoints</h2>
     <table>
       <thead><tr><th>Endpoint</th><th>Description</th></tr></thead>
@@ -174,7 +179,7 @@ curl https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/messages \\
   </section>
 
   <footer>
-    Built by the same team as <a href="https://flo-voice1.com">sms-florin</a> (rent a real phone number for SMS/OTP codes) — same idea, for email instead of SMS.
+    Built by the same team as <a href="https://flo-voice1.com/?ref=receivemail-site">sms-florin</a> (rent a real phone number for SMS/OTP codes) — same idea, for email instead of SMS.
   </footer>
 </div>
 </body>
