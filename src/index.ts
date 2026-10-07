@@ -16,6 +16,9 @@ const MAX_TTL_MINUTES = 60;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_CREATES = 20;
 const DAILY_GLOBAL_MAX_CREATES = 5_000;
+const PRO_INTEREST_PER_IP_PER_HOUR = 5;
+const PRO_FEATURES = ["private_domain", "higher_limits", "longer_retention", "webhooks", "html_attachments"];
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Our own health checks and self-tests send mail from these — excluded from
 // the "external" usage numbers in daily_stats.
 const OWN_SENDER_DOMAINS = ["flo-voice1.com", "ducemgunoiul.ro"];
@@ -53,6 +56,33 @@ function notFound(): Response {
     status: 404,
     headers: { "content-type": "application/json" },
   });
+}
+
+function jsonError(error: string, status: number): Response {
+  return new Response(JSON.stringify({ error }), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+// Same fixed-window shape as checkCreateRateLimit below, one-hour window.
+async function checkHourlyIpLimit(env: Env, key: string, max: number): Promise<boolean> {
+  const now = Date.now();
+  const row = await env.DB.prepare(`SELECT window_start, count FROM rate_limits WHERE bucket_key = ?`)
+    .bind(key)
+    .first<{ window_start: number; count: number }>();
+  if (!row || now - row.window_start > 60 * 60_000) {
+    await env.DB.prepare(
+      `INSERT INTO rate_limits (bucket_key, window_start, count) VALUES (?, ?, 1)
+       ON CONFLICT(bucket_key) DO UPDATE SET window_start = excluded.window_start, count = 1`,
+    )
+      .bind(key, now)
+      .run();
+    return true;
+  }
+  if (row.count >= max) return false;
+  await env.DB.prepare(`UPDATE rate_limits SET count = count + 1 WHERE bucket_key = ?`).bind(key).run();
+  return true;
 }
 
 function tooManyRequests(): Response {
@@ -325,6 +355,42 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
       });
     }
 
+    // POST /pro-interest — the landing page's "Need more?" form. A demand
+    // test for a paid tier, nothing is sold here. Capped per IP so the form
+    // can't be used to fill the table.
+    if (request.method === "POST" && parts.length === 1 && parts[0] === "pro-interest") {
+      const ip = request.headers.get("cf-connecting-ip") ?? "unknown";
+      if (!(await checkHourlyIpLimit(env, `pro:ip:${ip}`, PRO_INTEREST_PER_IP_PER_HOUR))) {
+        return tooManyRequests();
+      }
+
+      let body: { email?: unknown; features?: unknown; note?: unknown };
+      try {
+        body = await request.json();
+      } catch {
+        return jsonError("invalid JSON", 400);
+      }
+      const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+      if (!EMAIL_SHAPE.test(email) || email.length > 254) return jsonError("please enter a valid email", 400);
+      const features = Array.isArray(body.features)
+        ? body.features.filter((f): f is string => typeof f === "string" && PRO_FEATURES.includes(f))
+        : [];
+      const note = typeof body.note === "string" ? body.note.trim().slice(0, 500) || null : null;
+
+      await env.DB.prepare(
+        `INSERT INTO pro_interest (email, features, note) VALUES (?, ?, ?)
+         ON CONFLICT(email) DO UPDATE SET features = excluded.features, note = excluded.note,
+           updated_at = datetime('now')`,
+      )
+        .bind(email, JSON.stringify(features), note)
+        .run();
+
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 201,
+        headers: { "content-type": "application/json" },
+      });
+    }
+
     // POST /mailboxes — reserve a fresh random address. Public/self-serve —
     // no token required to create one, same as any other disposable-inbox
     // provider. Protected by two independent caps instead: per-IP (stops one
@@ -451,10 +517,12 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
       .bind(cutoff)
       .run();
 
-    // Per-IP windows are tiny (60s) — anything older than an hour is stale.
+    // Per-IP windows are at most an hour (60s for creates, 1h for the Pro
+    // interest form) — anything older than that is stale.
     const ipRateLimitCutoff = Date.now() - 60 * 60_000;
     await env.DB.prepare(
-      `DELETE FROM rate_limits WHERE bucket_key LIKE 'create:ip:%' AND window_start < ?`,
+      `DELETE FROM rate_limits
+       WHERE (bucket_key LIKE 'create:ip:%' OR bucket_key LIKE 'pro:ip:%') AND window_start < ?`,
     )
       .bind(ipRateLimitCutoff)
       .run();

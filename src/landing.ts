@@ -114,6 +114,16 @@ export const LANDING_HTML = `<!doctype html>
     font-size: 0.88rem;
   }
   a { color: var(--accent); }
+  .pro-box { border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem 1.3rem; background: var(--bg-raised); display: grid; gap: 0.55rem; }
+  .pro-box label { color: var(--text-dim); font-size: 0.95rem; display: flex; gap: 0.6rem; align-items: center; cursor: pointer; }
+  .pro-box input[type="checkbox"] { accent-color: var(--accent); width: 1rem; height: 1rem; }
+  .pro-box input[type="text"], .pro-box input[type="email"] { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.85rem; color: var(--text); font-size: 0.95rem; font-family: var(--sans); }
+  .pro-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.3rem; }
+  .pro-row input { flex: 1; min-width: 200px; }
+  .pro-box button { background: var(--accent); color: #0b0d10; border: none; border-radius: 8px; padding: 0.6rem 1.1rem; font-weight: 600; font-size: 0.92rem; cursor: pointer; }
+  .pro-box button:disabled { opacity: 0.6; cursor: default; }
+  .pro-status { margin: 0.3rem 0 0; font-size: 0.92rem; color: var(--accent); }
+  [hidden] { display: none !important; }
   @media (prefers-reduced-motion: no-preference) {
     .wrap { animation: fade-in 0.4s ease-out; }
   }
@@ -167,6 +177,24 @@ curl https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/messages \\
     </ul>
   </section>
 
+  <section id="pro">
+    <h2>Need more than the free tier?</h2>
+    <p style="color:var(--text-dim)">We're considering a paid plan for teams that outgrow the limits above. Tick what you'd actually pay for and leave your email — we'll only write to you about this.</p>
+    <form id="pro-form" class="pro-box">
+      <label><input type="checkbox" name="f" value="private_domain"> Private inboxes on your own domain</label>
+      <label><input type="checkbox" name="f" value="higher_limits"> Higher limits (more mailboxes per minute / day)</label>
+      <label><input type="checkbox" name="f" value="longer_retention"> Longer mailbox lifetime and retention</label>
+      <label><input type="checkbox" name="f" value="webhooks"> Webhooks — push new mail to you instead of polling</label>
+      <label><input type="checkbox" name="f" value="html_attachments"> HTML bodies and attachments</label>
+      <input type="text" id="pro-note" maxlength="500" placeholder="Anything else? (optional)">
+      <div class="pro-row">
+        <input type="email" id="pro-email" placeholder="you@company.com" required autocomplete="email">
+        <button type="submit" id="pro-btn">Notify me</button>
+      </div>
+      <p id="pro-status" class="pro-status" hidden></p>
+    </form>
+  </section>
+
   <section>
     <h2>Guides</h2>
     <ul class="limits">
@@ -182,5 +210,40 @@ curl https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/messages \\
     Built by the same team as <a href="https://flo-voice1.com/?ref=receivemail-site">sms-florin</a> (rent a real phone number for SMS/OTP codes) — same idea, for email instead of SMS.
   </footer>
 </div>
+<script>
+(function () {
+  var form = document.getElementById('pro-form');
+  var btn = document.getElementById('pro-btn');
+  var status = document.getElementById('pro-status');
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var features = Array.prototype.map.call(form.querySelectorAll('input[name="f"]:checked'), function (c) { return c.value; });
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    fetch('/pro-interest', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        email: document.getElementById('pro-email').value.trim(),
+        features: features,
+        note: document.getElementById('pro-note').value.trim()
+      })
+    })
+      .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, d: d }; }); })
+      .then(function (r) {
+        if (!r.ok) throw new Error(r.d.error || 'something went wrong');
+        status.textContent = "Thanks — you're on the list. We'll email you if we build it.";
+        status.hidden = false;
+        btn.textContent = 'Done';
+      })
+      .catch(function (err) {
+        status.textContent = 'Could not save that: ' + err.message;
+        status.hidden = false;
+        btn.disabled = false;
+        btn.textContent = 'Notify me';
+      });
+  });
+})();
+</script>
 </body>
 </html>`;
