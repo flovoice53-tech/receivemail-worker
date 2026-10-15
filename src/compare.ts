@@ -315,10 +315,80 @@ curl -s "https://receivemail.dev/mailboxes/$addr/messages" \\
 `,
 });
 
+const MAILSAC_ALTERNATIVE = page({
+  slug: "mailsac-alternative",
+  title: "A free Mailsac alternative — no API key needed to start",
+  description:
+    "Mailsac's public inboxes need no signup either, but reading them over the API does. receivemail.dev skips the API key entirely — one POST, no account.",
+  body: `
+  <p><a href="https://mailsac.com">Mailsac</a> is a mature email-testing API:
+  any <code>@mailsac.com</code> address receives mail with no signup, and a free
+  account adds an API key, 1 private address, and 1,500 operations a month — paid
+  plans scale from there (25,000 ops/mo and up). It's a solid choice if you want a
+  long-lived account with usage history and room to grow.</p>
+
+  <p>If the job is narrower — <strong>in an automated test, sign up for something
+  and read the verification email back</strong> — <a href="/">receivemail.dev</a>
+  skips the account step entirely. There's no API key to generate or store, even
+  for private, non-public inboxes: one unauthenticated POST creates the mailbox
+  and returns a secret that gates reading it.</p>
+
+  <h2>Side by side</h2>
+  <table>
+    <thead><tr><th></th><th>receivemail.dev</th><th>Mailsac</th></tr></thead>
+    <tbody>
+      <tr><td>Price</td><td>Free</td><td>Free tier (1,500 ops/mo), then from $18/mo</td></tr>
+      <tr><td>Signup / account</td><td>None</td><td>Not required for public inboxes; required for API key / private inboxes</td></tr>
+      <tr><td>API key</td><td>No</td><td>Yes, for API access</td></tr>
+      <tr><td>Private inbox without signup</td><td>Yes — every inbox is private by default</td><td>No — no-signup inboxes are public</td></tr>
+      <tr><td>Operations/month limit</td><td>None published (rate-limited per IP instead)</td><td>1,500 free, then plan-based</td></tr>
+      <tr><td>Own domain support</td><td>No</td><td>Yes (paid)</td></tr>
+      <tr><td>Retention</td><td>Up to 60 min TTL</td><td>Longer, plan-dependent</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Mailsac's plans and operation limits change over time — see
+  <a href="https://mailsac.com/pricing">mailsac.com/pricing</a> for current numbers.</p>
+
+  <h2>When receivemail.dev is enough</h2>
+  <ul>
+    <li>You want a private inbox without ever creating an account or key.</li>
+    <li>The test only needs to read one code/link, not manage ongoing volume.</li>
+    <li>You want contributors to run the suite with zero setup.</li>
+  </ul>
+
+  <h2>When to choose Mailsac instead</h2>
+  <ul>
+    <li>You're sending real volume and want a tracked monthly operations budget.</li>
+    <li>You want your own domain receiving test mail.</li>
+    <li>You want an account with history/dashboard across a team.</li>
+  </ul>
+
+  <h2>Migrating a test</h2>
+  <pre><span class="comment"># Mailsac: GET /api/addresses/:email/messages with X-Mailsac-Key</span>
+resp=$(curl -s -X POST https://receivemail.dev/mailboxes)
+addr=$(echo "$resp" | jq -r .address)
+secret=$(echo "$resp" | jq -r .secret)
+
+<span class="comment"># ... run your signup against $addr ...</span>
+
+curl -s "https://receivemail.dev/mailboxes/$addr/messages" \\
+  -H "Authorization: Bearer $secret"</pre>
+  <p>Full walkthrough: <a href="/guides/testing-verification-emails">the CI testing guide</a>.</p>
+
+  <h2>Other alternatives people compare</h2>
+  <ul>
+    <li><strong>MailSlurp</strong> — full email platform, send + receive. See <a href="/compare/mailslurp-alternative">the MailSlurp comparison</a>.</li>
+    <li><strong>Mailinator</strong> — free public inboxes, paid private domains. See <a href="/compare/mailinator-alternative">the Mailinator comparison</a>.</li>
+    <li><strong>Mailosaur</strong> — paid email + SMS testing for QA teams. See <a href="/compare/mailosaur-alternative">the Mailosaur comparison</a>.</li>
+  </ul>
+`,
+});
+
 export const COMPARE: Record<string, string> = {
   "mailslurp-alternative": MAILSLURP_ALTERNATIVE,
   "mailinator-alternative": MAILINATOR_ALTERNATIVE,
   "mailosaur-alternative": MAILOSAUR_ALTERNATIVE,
+  "mailsac-alternative": MAILSAC_ALTERNATIVE,
 };
 
 export const COMPARE_SLUGS = Object.keys(COMPARE);
