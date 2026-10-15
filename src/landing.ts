@@ -179,7 +179,11 @@ curl https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/messages \\
 
   <section id="pro">
     <h2>Need more than the free tier?</h2>
-    <p style="color:var(--text-dim)">We're considering a paid plan for teams that outgrow the limits above. Tick what you'd actually pay for and leave your email — we'll only write to you about this.</p>
+    <p style="color:var(--text-dim)"><strong>receivemail.dev Pro — $7/month:</strong> 24h mailbox retention (vs. 60 min free), higher rate limits for CI with many parallel jobs, and priority for webhook delivery as it ships. We email your Pro access within one business day of subscribing — this is a new, manually-fulfilled plan, not an instant API key yet.</p>
+    <div class="pro-row" style="margin-bottom:1.1rem">
+      <a href="https://buy.stripe.com/dRm7sL0my8QRgMMf6GcZa00" style="display:inline-block;background:var(--accent);color:#0b0d10;border-radius:8px;padding:0.7rem 1.3rem;font-weight:600;text-decoration:none;">Subscribe — $7/mo →</a>
+    </div>
+    <p style="color:var(--text-dim);font-size:0.9rem">Want something else — private domain, webhooks, HTML attachments? Tell us what you'd actually use, free to ask:</p>
     <form id="pro-form" class="pro-box">
       <label><input type="checkbox" name="f" value="private_domain"> Private inboxes on your own domain</label>
       <label><input type="checkbox" name="f" value="higher_limits"> Higher limits (more mailboxes per minute / day)</label>

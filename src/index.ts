@@ -317,6 +317,16 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
       });
     }
 
+    // Stripe Payment Link redirect target for the Pro subscription. Fulfilment
+    // is manual for this first version (no webhook/API-key issuance yet) — see
+    // the note on the page itself; this just confirms the payment landed.
+    if (request.method === "GET" && parts.length === 2 && parts[0] === "pro" && parts[1] === "thanks") {
+      return new Response(
+        `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Thanks — receivemail.dev</title><link rel="icon" type="image/svg+xml" href="/icon.svg"><style>body{margin:0;background:#0b0d10;color:#e8eaed;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center;padding:1.5rem}a{color:#5eead4}</style></head><body><div><h1>You're in 🎉</h1><p>Thanks for subscribing to receivemail.dev Pro. We'll email your access (higher limits, 24h retention) within one business day.</p><p><a href="/">← back to receivemail.dev</a></p></div></body></html>`,
+        { headers: { "content-type": "text/html;charset=utf-8" } },
+      );
+    }
+
     if (request.method === "GET" && parts.length === 1 && parts[0] === "sitemap.xml") {
       const urls = [
         "https://receivemail.dev/",
