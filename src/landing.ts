@@ -179,16 +179,20 @@ curl https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/messages \\
 
   <section id="pro">
     <h2>Need more than the free tier?</h2>
-    <p style="color:var(--text-dim)"><strong>receivemail.dev Pro — $7/month:</strong> 24h mailbox retention (vs. 60 min free), higher rate limits for CI with many parallel jobs, and priority for webhook delivery as it ships. We email your Pro access within one business day of subscribing — this is a new, manually-fulfilled plan, not an instant API key yet.</p>
+    <p style="color:var(--text-dim)">The free API stays free. Paid plans give you an API key <strong>instantly after checkout</strong> — send it as <code>Authorization: Bearer rmk_…</code> on <code>POST /mailboxes</code>.</p>
+    <p style="color:var(--text-dim)"><strong>Pro — $7/month:</strong> mailboxes that live up to 24h (vs. 60 min free), 120 creates/min per key instead of the per-IP limit (for CI with many parallel jobs), and every message comes back with the verification code already extracted in an <code>otp</code> field — no regex in your tests.</p>
     <div class="pro-row" style="margin-bottom:1.1rem">
-      <a href="https://buy.stripe.com/dRm7sL0my8QRgMMf6GcZa00" style="display:inline-block;background:var(--accent);color:#0b0d10;border-radius:8px;padding:0.7rem 1.3rem;font-weight:600;text-decoration:none;">Subscribe — $7/mo →</a>
+      <a href="https://buy.stripe.com/dRm7sL0my8QRgMMf6GcZa00" style="display:inline-block;background:var(--accent);color:#0b0d10;border-radius:8px;padding:0.7rem 1.3rem;font-weight:600;text-decoration:none;">Subscribe to Pro — $7/mo →</a>
     </div>
-    <p style="color:var(--text-dim);font-size:0.9rem">Want something else — private domain, webhooks, HTML attachments? Tell us what you'd actually use, free to ask:</p>
+    <p style="color:var(--text-dim)"><strong>Pro + Webhooks — $19/month:</strong> everything in Pro, plus pass a <code>webhookUrl</code> when you create a mailbox and every email that lands is POSTed to you the moment it arrives — <code>{address, from, subject, bodyText, otp, receivedAt}</code>, HMAC-signed with your key. Stop polling.</p>
+    <div class="pro-row" style="margin-bottom:1.1rem">
+      <a href="https://buy.stripe.com/fZufZh4CO7MNdAAgaKcZa01" style="display:inline-block;background:var(--accent);color:#0b0d10;border-radius:8px;padding:0.7rem 1.3rem;font-weight:600;text-decoration:none;">Subscribe to Pro + Webhooks — $19/mo →</a>
+    </div>
+    <p style="color:var(--text-dim);font-size:0.9rem">Want something else — private domain, HTML attachments? Tell us what you'd actually use, free to ask:</p>
     <form id="pro-form" class="pro-box">
       <label><input type="checkbox" name="f" value="private_domain"> Private inboxes on your own domain</label>
       <label><input type="checkbox" name="f" value="higher_limits"> Higher limits (more mailboxes per minute / day)</label>
       <label><input type="checkbox" name="f" value="longer_retention"> Longer mailbox lifetime and retention</label>
-      <label><input type="checkbox" name="f" value="webhooks"> Webhooks — push new mail to you instead of polling</label>
       <label><input type="checkbox" name="f" value="html_attachments"> HTML bodies and attachments</label>
       <input type="text" id="pro-note" maxlength="500" placeholder="Anything else? (optional)">
       <div class="pro-row">

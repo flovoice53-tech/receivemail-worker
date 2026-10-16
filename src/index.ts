@@ -4,8 +4,20 @@ import { GUIDES, GUIDE_SLUGS } from "./guides.js";
 import { COMPARE, COMPARE_SLUGS } from "./compare.js";
 import { FAQ_HTML } from "./faq.js";
 import { ICON_PNG_BASE64, ICON_SVG } from "./icon.js";
+import {
+  type BillingEnv,
+  PAID_CREATES_PER_MINUTE,
+  PAID_MAX_TTL_MINUTES,
+  deliverWebhook,
+  deriveApiKey,
+  extractOtp,
+  handleStripeWebhook,
+  lookupActiveKey,
+  sha256Hex,
+  validateWebhookUrl,
+} from "./billing.js";
 
-export interface Env {
+export interface Env extends BillingEnv {
   DB: D1Database;
   API_TOKEN: string;
 }
@@ -172,6 +184,29 @@ async function checkCreateRateLimit(env: Env, ip: string): Promise<boolean> {
   return true;
 }
 
+// Paid keys skip the per-IP and daily global caps (those exist to protect
+// the free tier from anonymous abuse) and get their own, higher per-key
+// limit instead — same fixed-window shape, keyed by the key's hash.
+async function checkKeyCreateLimit(env: Env, keyHash: string): Promise<boolean> {
+  const now = Date.now();
+  const key = `create:key:${keyHash}`;
+  const row = await env.DB.prepare(`SELECT window_start, count FROM rate_limits WHERE bucket_key = ?`)
+    .bind(key)
+    .first<{ window_start: number; count: number }>();
+  if (!row || now - row.window_start > RATE_LIMIT_WINDOW_MS) {
+    await env.DB.prepare(
+      `INSERT INTO rate_limits (bucket_key, window_start, count) VALUES (?, ?, 1)
+       ON CONFLICT(bucket_key) DO UPDATE SET window_start = excluded.window_start, count = 1`,
+    )
+      .bind(key, now)
+      .run();
+    return true;
+  }
+  if (row.count >= PAID_CREATES_PER_MINUTE) return false;
+  await env.DB.prepare(`UPDATE rate_limits SET count = count + 1 WHERE bucket_key = ?`).bind(key).run();
+  return true;
+}
+
 // A second, coarser ceiling across ALL callers combined — the per-IP limit
 // above stops one abusive IP, but not many distinct IPs hammering the
 // endpoint at once. 5,000/day is generous for real usage but caps worst-case
@@ -227,6 +262,73 @@ async function canReadMailbox(
   return safeCompare(presented, mailbox.secret);
 }
 
+const PAGE_HEAD = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex">`;
+const PAGE_STYLE = `<link rel="icon" type="image/svg+xml" href="/icon.svg"><style>body{margin:0;background:#0b0d10;color:#e8eaed;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:1.5rem}main{max-width:640px}a{color:#5eead4}code,pre{font-family:ui-monospace,Menlo,monospace;background:#151a20;border-radius:6px}code{padding:.15rem .35rem}pre{padding:.9rem;overflow-x:auto;font-size:.85rem}.key{font-size:1.05rem;word-break:break-all;color:#5eead4}</style></head><body><main>`;
+const PAGE_END = `<p><a href="/">← back to receivemail.dev</a></p></main></body></html>`;
+const KEY_REVEAL_WINDOW_MS = 24 * 60 * 60_000;
+
+function htmlPage(title: string, body: string, extraHead = ""): Response {
+  return new Response(`${PAGE_HEAD}<title>${title} — receivemail.dev</title>${extraHead}${PAGE_STYLE}${body}${PAGE_END}`, {
+    headers: { "content-type": "text/html;charset=utf-8", "cache-control": "no-store" },
+  });
+}
+
+async function proThanksPage(env: Env, sessionId: string | null): Promise<Response> {
+  if (!sessionId || !/^cs_[A-Za-z0-9_]{10,200}$/.test(sessionId)) {
+    return htmlPage("Thanks", `<h1>Thanks!</h1><p>If you just subscribed, open the link Stripe redirected you to — it carries your session and shows your API key.</p>`);
+  }
+  const row = await env.DB.prepare(
+    `SELECT tier, status, created_at FROM api_keys WHERE stripe_session_id = ?`,
+  )
+    .bind(sessionId)
+    .first<{ tier: string; status: string; created_at: string }>();
+
+  if (!row) {
+    return htmlPage(
+      "Finishing up",
+      `<h1>Finishing up…</h1><p>Payment received — your API key is being issued. This page refreshes on its own in a few seconds.</p><p style="color:#9aa0a6">Still here after a minute? Email flovoice53@gmail.com with your Stripe receipt and we'll sort it out.</p>`,
+      `<meta http-equiv="refresh" content="4">`,
+    );
+  }
+
+  const createdMs = Date.parse(`${row.created_at.replace(" ", "T")}Z`);
+  if (row.status !== "active" || Date.now() - createdMs > KEY_REVEAL_WINDOW_MS) {
+    return htmlPage(
+      "Subscription",
+      `<h1>Subscription found</h1><p>For security, the API key is only shown here for 24 hours after purchase. Lost it? Email flovoice53@gmail.com with your Stripe receipt for a new one.</p>`,
+    );
+  }
+
+  const key = await deriveApiKey(env, sessionId);
+  const webhooks = row.tier === "webhooks";
+  const createExample = webhooks
+    ? `curl -X POST https://receivemail.dev/mailboxes \\
+  -H "Authorization: Bearer ${key}" \\
+  -H "content-type: application/json" \\
+  -d '{"ttlMinutes": 1440, "webhookUrl": "https://your-app.example.com/hooks/email"}'`
+    : `curl -X POST https://receivemail.dev/mailboxes \\
+  -H "Authorization: Bearer ${key}" \\
+  -H "content-type: application/json" \\
+  -d '{"ttlMinutes": 1440}'`;
+
+  return htmlPage(
+    "Your API key",
+    `<h1>You're in 🎉</h1>
+<p>receivemail.dev <strong>${webhooks ? "Pro + Webhooks" : "Pro"}</strong> is active. Your API key:</p>
+<p><code class="key">${key}</code></p>
+<p><strong>Copy it now</strong> — this page stops showing it 24 hours after purchase.</p>
+<h2>Use it</h2>
+<p>Send it as a Bearer token when creating a mailbox. Paid mailboxes live up to 24h (free: 60 min), skip the free tier's per-IP limits (${PAID_CREATES_PER_MINUTE} creates/min per key), and every message comes back with the verification code already extracted in an <code>otp</code> field.</p>
+<pre>${createExample}</pre>
+${
+  webhooks
+    ? `<p>Every email that lands in that mailbox is POSTed to your <code>webhookUrl</code> as JSON: <code>{address, from, subject, bodyText, otp, receivedAt}</code>. Verify it's from us: <code>X-Receivemail-Signature</code> is the hex HMAC-SHA256 of the raw request body, keyed with your API key.</p>`
+    : `<p>Want each email pushed to your own URL instead of polling? That's the Pro + Webhooks plan on <a href="/#pro">the pricing section</a>.</p>`
+}
+<p>To cancel any time, email flovoice53@gmail.com — the key stops working when the subscription ends.</p>`,
+  );
+}
+
 export default {
   // Incoming mail always gets stored regardless of whether a `mailboxes` row
   // exists for it — same "any address just works" behavior every disposable
@@ -236,17 +338,44 @@ export default {
   async email(
     message: ForwardableEmailMessage,
     env: Env,
-    _ctx: ExecutionContext,
+    ctx: ExecutionContext,
   ): Promise<void> {
     const raw = await new Response(message.raw).arrayBuffer();
     const parsed = await PostalMime.parse(raw);
     const mailbox = message.to.toLowerCase();
+    const subject = parsed.subject ?? null;
+    const bodyText = parsed.text ?? null;
 
     await env.DB.prepare(
       `INSERT INTO emails (mailbox, from_address, subject, body_text) VALUES (?, ?, ?, ?)`,
     )
-      .bind(mailbox, message.from, parsed.subject ?? null, parsed.text ?? null)
+      .bind(mailbox, message.from, subject, bodyText)
       .run();
+
+    // Webhooks tier: push the message to the owner's URL. Re-checks the key
+    // is still active and still on the webhooks tier at delivery time, so a
+    // cancelled subscription stops deliveries on mailboxes it already made.
+    const target = await env.DB.prepare(
+      `SELECT m.webhook_url, k.stripe_session_id FROM mailboxes m
+       JOIN api_keys k ON k.key_hash = m.owner_key_hash
+       WHERE m.address = ? AND m.webhook_url IS NOT NULL AND k.status = 'active' AND k.tier = 'webhooks'`,
+    )
+      .bind(mailbox)
+      .first<{ webhook_url: string; stripe_session_id: string }>();
+    if (target) {
+      ctx.waitUntil(
+        deliverWebhook(env, target.webhook_url, target.stripe_session_id, {
+          address: mailbox,
+          // Header From (who the customer recognizes), not the envelope
+          // sender — that's often a bounce address like 0102…@send.example.com.
+          from: parsed.from?.address || message.from,
+          subject,
+          bodyText,
+          otp: extractOtp(subject, bodyText),
+          receivedAt: new Date().toISOString(),
+        }),
+      );
+    }
   },
 
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -284,6 +413,12 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
 - Free, no signup, no API key. FAQ (Playwright/Cypress recipes, limits, retention): https://receivemail.dev/faq
 - Rate limited: 20 creates/min/IP, 5,000 creates/day globally.
 
+## Paid plans (optional)
+
+- Pro, $7/mo: send \`Authorization: Bearer rmk_...\` on \`POST /mailboxes\` — mailboxes up to 24h (\`ttlMinutes\` up to 1440), 120 creates/min per key instead of the per-IP limit, and each message from \`GET /mailboxes/:address/messages\` includes an extracted \`otp\` field.
+- Pro + Webhooks, $19/mo: everything in Pro, plus pass \`webhookUrl\` (public https) when creating a mailbox and every incoming email is POSTed there as JSON \`{address, from, subject, bodyText, otp, receivedAt}\`, signed with \`X-Receivemail-Signature\` = hex HMAC-SHA256(your API key, raw body).
+- Subscribe on https://receivemail.dev/#pro — the API key is shown right after checkout.
+
 ## Docs
 
 - [Landing page / quickstart](https://receivemail.dev/): curl examples, full endpoint reference.
@@ -317,14 +452,18 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
       });
     }
 
-    // Stripe Payment Link redirect target for the Pro subscription. Fulfilment
-    // is manual for this first version (no webhook/API-key issuance yet) — see
-    // the note on the page itself; this just confirms the payment landed.
+    // Stripe webhook for the paid tiers — issues API keys automatically.
+    if (request.method === "POST" && parts.length === 2 && parts[0] === "webhooks" && parts[1] === "stripe") {
+      return handleStripeWebhook(request, env);
+    }
+
+    // Stripe Payment Link redirect target (both paid tiers). Stripe appends
+    // ?session_id=cs_... — the key is re-derived from it and shown here. The
+    // webhook can land a few seconds after the redirect, so until the row
+    // exists the page refreshes itself. Shown for 24h after purchase; after
+    // that a stale/leaked URL stops revealing the key.
     if (request.method === "GET" && parts.length === 2 && parts[0] === "pro" && parts[1] === "thanks") {
-      return new Response(
-        `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Thanks — receivemail.dev</title><link rel="icon" type="image/svg+xml" href="/icon.svg"><style>body{margin:0;background:#0b0d10;color:#e8eaed;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center;padding:1.5rem}a{color:#5eead4}</style></head><body><div><h1>You're in 🎉</h1><p>Thanks for subscribing to receivemail.dev Pro. We'll email your access (higher limits, 24h retention) within one business day.</p><p><a href="/">← back to receivemail.dev</a></p></div></body></html>`,
-        { headers: { "content-type": "text/html;charset=utf-8" } },
-      );
+      return proThanksPage(env, url.searchParams.get("session_id"));
     }
 
     if (request.method === "GET" && parts.length === 1 && parts[0] === "sitemap.xml") {
@@ -408,16 +547,36 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
     // once). The admin API_TOKEN still works for reading any mailbox (see
     // canReadMailbox), it's just no longer required to create one.
     if (request.method === "POST" && parts[0] === "mailboxes" && parts.length === 1) {
-      if (!(await checkDailyGlobalLimit(env))) return tooManyRequests();
+      // Optional paid key. A key that's presented but invalid/cancelled is a
+      // 401, not a silent downgrade to the free tier — the caller would
+      // otherwise get 60-minute mailboxes and no webhooks without noticing.
+      const authHeader = request.headers.get("authorization") ?? "";
+      const presentedKey = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+      const paidKey = presentedKey ? await lookupActiveKey(env, presentedKey) : null;
+      if (presentedKey && !paidKey) return jsonError("invalid or inactive API key", 401);
 
-      const ip = request.headers.get("cf-connecting-ip") ?? "unknown";
-      if (!(await checkCreateRateLimit(env, ip))) return tooManyRequests();
+      if (paidKey) {
+        if (!(await checkKeyCreateLimit(env, paidKey.key_hash))) return tooManyRequests();
+      } else {
+        if (!(await checkDailyGlobalLimit(env))) return tooManyRequests();
+        const ip = request.headers.get("cf-connecting-ip") ?? "unknown";
+        if (!(await checkCreateRateLimit(env, ip))) return tooManyRequests();
+      }
 
+      const maxTtl = paidKey ? PAID_MAX_TTL_MINUTES : MAX_TTL_MINUTES;
       let ttlMinutes = DEFAULT_TTL_MINUTES;
+      let webhookUrl: string | null = null;
       try {
-        const body = (await request.json()) as { ttlMinutes?: unknown };
+        const body = (await request.json()) as { ttlMinutes?: unknown; webhookUrl?: unknown };
         if (typeof body?.ttlMinutes === "number" && Number.isFinite(body.ttlMinutes)) {
-          ttlMinutes = Math.min(Math.max(1, body.ttlMinutes), MAX_TTL_MINUTES);
+          ttlMinutes = Math.min(Math.max(1, body.ttlMinutes), maxTtl);
+        }
+        if (body?.webhookUrl !== undefined && body.webhookUrl !== null) {
+          if (paidKey?.tier !== "webhooks") {
+            return jsonError("webhookUrl needs the Pro + Webhooks plan — see https://receivemail.dev/#pro", 402);
+          }
+          webhookUrl = validateWebhookUrl(body.webhookUrl);
+          if (!webhookUrl) return jsonError("webhookUrl must be a public https URL", 400);
         }
       } catch {
         // No/invalid body — use the default TTL.
@@ -428,15 +587,18 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
       const expiresAt = new Date(Date.now() + ttlMinutes * 60_000).toISOString();
 
       await env.DB.prepare(
-        `INSERT INTO mailboxes (address, expires_at, secret) VALUES (?, ?, ?)`,
+        `INSERT INTO mailboxes (address, expires_at, secret, owner_key_hash, webhook_url) VALUES (?, ?, ?, ?, ?)`,
       )
-        .bind(address, expiresAt, secret)
+        .bind(address, expiresAt, secret, paidKey?.key_hash ?? null, webhookUrl)
         .run();
 
       // secret is only ever returned here, at creation — the caller must
       // hold onto it to read this mailbox's messages later. `tip` is an extra
       // field existing clients ignore; the ref tags clicks from the API apart
       // from clicks on the landing page in sms-florin's attribution.
+      if (paidKey) {
+        return Response.json({ address, expiresAt, secret, tier: paidKey.tier, webhookUrl }, { status: 201 });
+      }
       return Response.json(
         {
           address,
@@ -489,8 +651,18 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
         `SELECT from_address, subject, body_text, strftime('%Y-%m-%dT%H:%M:%SZ', received_at) AS received_at FROM emails WHERE mailbox = ? ORDER BY emails.received_at DESC LIMIT 50`,
       )
         .bind(address)
-        .all();
+        .all<{ from_address: string; subject: string | null; body_text: string | null; received_at: string }>();
 
+      // Paid mailboxes get the verification code pre-extracted per message.
+      const owner = await env.DB.prepare(`SELECT owner_key_hash FROM mailboxes WHERE address = ?`)
+        .bind(address)
+        .first<{ owner_key_hash: string | null }>();
+      if (owner?.owner_key_hash) {
+        return Response.json({
+          address,
+          messages: results.map((m) => ({ ...m, otp: extractOtp(m.subject, m.body_text) })),
+        });
+      }
       return Response.json({ address, messages: results });
     }
 
@@ -532,7 +704,8 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
     const ipRateLimitCutoff = Date.now() - 60 * 60_000;
     await env.DB.prepare(
       `DELETE FROM rate_limits
-       WHERE (bucket_key LIKE 'create:ip:%' OR bucket_key LIKE 'pro:ip:%') AND window_start < ?`,
+       WHERE (bucket_key LIKE 'create:ip:%' OR bucket_key LIKE 'create:key:%' OR bucket_key LIKE 'pro:ip:%')
+         AND window_start < ?`,
     )
       .bind(ipRateLimitCutoff)
       .run();
