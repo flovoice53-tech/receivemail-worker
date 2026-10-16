@@ -423,11 +423,13 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
 
 - [Landing page / quickstart](https://receivemail.dev/): curl examples, full endpoint reference.
 - [Testing email verification flows in CI](https://receivemail.dev/guides/testing-verification-emails)
+- [Getting verification codes without regex or polling (otp field, webhooks)](https://receivemail.dev/guides/email-otp-webhook)
 
 ## Related
 
 - [sms-florin](https://flo-voice1.com/llms.txt): the phone-number rental service this shares its audience with — same "receive something, expose via API" pattern for SMS instead of email.
 - [otp-watch](https://otpwatch.flo-voice1.com/llms.txt): synthetic monitoring built on top of both this and sms-florin, confirming an OTP/verification code actually arrives.
+- [mcp-ssrf-scan](https://mcpscan.flo-voice1.com): static SSRF/secrets scanner for MCP servers, with optional CI scan history.
 `,
         { headers: { "content-type": "text/plain; charset=utf-8" } },
       );
@@ -605,6 +607,10 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
           expiresAt,
           secret,
           tip: "Need the SMS verification code too? Real UK numbers: https://flo-voice1.com/?ref=receivemail-api",
+          // Same "extra field, ignored by existing clients" pattern as `tip`.
+          // Only anonymous callers see it — paid responses return early above.
+          upgrade:
+            "Want the verification code extracted for you (no regex), 24h mailboxes, or each email pushed to your webhook? https://receivemail.dev/guides/email-otp-webhook",
         },
         { status: 201 },
       );

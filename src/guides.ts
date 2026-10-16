@@ -164,8 +164,8 @@ test('new user can verify their email', async ({ page, mailbox }) => {
 });</pre>
   <p>Cypress: <code>cy.createMailbox()</code>, then
   <code>cy.getEmailMatch(/\\d{6}/)</code> for a code or a link regex. See
-  <a href="https://github.com/flovoice53-tech/playwright-receivemail">playwright-receivemail</a>
-  / <a href="https://github.com/flovoice53-tech/cypress-receivemail">cypress-receivemail</a>.</p>
+  <a href="https://www.npmjs.com/package/playwright-receivemail">playwright-receivemail</a>
+  / <a href="https://www.npmjs.com/package/cypress-receivemail">cypress-receivemail</a>.</p>
 
   <h2>Notes</h2>
   <ul>
@@ -185,8 +185,101 @@ test('new user can verify their email', async ({ page, mailbox }) => {
 `,
 });
 
+const OTP_WEBHOOK = page({
+  slug: "email-otp-webhook",
+  title: "Get email verification codes without regex or polling",
+  description:
+    "Two ways to stop hand-parsing verification emails in tests: read a pre-extracted otp field, or have every email pushed to your webhook the moment it arrives.",
+  body: `
+  <p>The usual way to test an email-verification step is: create an inbox, trigger the
+  signup, then poll the inbox every couple of seconds and run a regex over the body to
+  find the code. It works, but it's the flakiest part of a signup test — the regex
+  breaks when someone edits the email template, and the poll interval is either too
+  slow (wasted CI minutes) or too fast (rate limits).</p>
+  <p>receivemail.dev's paid plans remove both halves of that. Both use an API key,
+  shown right after checkout, sent as <code>Authorization: Bearer rmk_…</code> when
+  you create the mailbox.</p>
+
+  <h2>1. The code, already extracted (Pro, $7/mo)</h2>
+  <p>Mailboxes created with a key return every message with an <code>otp</code> field —
+  the verification code pulled out for you (a number next to "code", "OTP",
+  "verify"…, or the lone 4–8 digit number in the email, ignoring things like a
+  copyright year). No regex in your test:</p>
+  <pre>resp=$(curl -s -X POST https://receivemail.dev/mailboxes \\
+  -H "Authorization: Bearer $RECEIVEMAIL_KEY")
+addr=$(echo "$resp" | jq -r .address)
+secret=$(echo "$resp" | jq -r .secret)
+
+# ...trigger your signup with $addr...
+
+for i in $(seq 1 15); do
+  otp=$(curl -s "https://receivemail.dev/mailboxes/$addr/messages" \\
+    -H "Authorization: Bearer $secret" | jq -r '.messages[0].otp // empty')
+  [ -n "$otp" ] && break
+  sleep 2
+done
+echo "code: $otp"</pre>
+  <p>Paid mailboxes also live up to 24 hours instead of 60 minutes, and a key gets 120
+  creates per minute instead of the free per-IP limit — useful when many CI jobs run
+  in parallel behind one NAT address.</p>
+
+  <h2>2. Pushed to you instead of polled (Pro + Webhooks, $19/mo)</h2>
+  <p>Pass a <code>webhookUrl</code> when creating the mailbox and every email that lands
+  is POSTed there within about a second, as JSON:</p>
+  <pre>curl -X POST https://receivemail.dev/mailboxes \\
+  -H "Authorization: Bearer $RECEIVEMAIL_KEY" \\
+  -H 'content-type: application/json' \\
+  -d '{"ttlMinutes": 1440, "webhookUrl": "https://test-harness.example.com/hooks/email"}'</pre>
+  <pre>{
+  "address": "7f2b0094b9fc@receivemail.dev",
+  "from": "noreply@your-app.example",
+  "subject": "Your verification code",
+  "bodyText": "Your verification code is 739204...",
+  "otp": "739204",
+  "receivedAt": "2026-10-16T03:42:38.226Z"
+}</pre>
+  <p>Each request carries <code>X-Receivemail-Signature</code>: the hex HMAC-SHA256 of the
+  raw body, keyed with your API key. Verify it before trusting the payload:</p>
+  <pre>import express from 'express';
+import crypto from 'node:crypto';
+
+const app = express();
+app.post('/hooks/email', express.raw({ type: 'application/json' }), (req, res) => {
+  const expected = crypto.createHmac('sha256', process.env.RECEIVEMAIL_KEY)
+    .update(req.body).digest('hex');
+  const given = req.get('x-receivemail-signature') ?? '';
+  if (given.length !== expected.length ||
+      !crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected))) {
+    return res.sendStatus(401);
+  }
+  const mail = JSON.parse(req.body);
+  console.log(mail.address, mail.otp);   // hand the code to whatever is waiting on it
+  res.sendStatus(200);
+});
+app.listen(3000);</pre>
+
+  <h2>When a webhook fits — and when it doesn't</h2>
+  <ul>
+    <li>A webhook needs a <strong>public https URL</strong>. A normal CI runner doesn't
+    have one, so for a plain CI test the <code>otp</code> field from option 1 is
+    usually the simpler win.</li>
+    <li>Webhooks fit when something long-running is listening: a staging test harness, a
+    QA dashboard, a monitoring job, or an AI agent working through a signup and waiting
+    for the code.</li>
+    <li>Only public https hostnames are accepted — no plain http, IP addresses or
+    localhost. For a quick local experiment, put a tunnel (cloudflared, ngrok) in
+    front of your listener.</li>
+    <li>Delivery is attempted twice. The message is also stored as usual, so you can
+    always fall back to reading it over the API.</li>
+  </ul>
+  <p>Both plans are on the <a href="/#pro">pricing section</a>; the free API stays free
+  and unchanged.</p>
+`,
+});
+
 export const GUIDES: Record<string, string> = {
   "testing-verification-emails": TESTING_VERIFICATION_EMAILS,
+  "email-otp-webhook": OTP_WEBHOOK,
 };
 
 export const GUIDE_SLUGS = Object.keys(GUIDES);

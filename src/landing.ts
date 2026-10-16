@@ -208,6 +208,7 @@ curl https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/messages \\
     <ul class="limits">
       <li><a href="/faq">FAQ</a> — Playwright and Cypress recipes, limits, retention</li>
       <li><a href="/guides/testing-verification-emails">How to test email verification flows in CI</a> — shell and Playwright recipes</li>
+      <li><a href="/guides/email-otp-webhook">Get verification codes without regex or polling</a> — pre-extracted <code>otp</code> field and webhooks</li>
       <li><a href="/compare/mailslurp-alternative">A free MailSlurp alternative for reading verification emails in tests</a></li>
       <li><a href="/compare/mailinator-alternative">A private, free Mailinator alternative for verification emails</a></li>
       <li><a href="/compare/mailosaur-alternative">A free Mailosaur alternative for email verification in tests</a></li>
@@ -216,7 +217,7 @@ curl https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/messages \\
   </section>
 
   <footer>
-    Built by the same team as <a href="https://flo-voice1.com/?ref=receivemail-site">sms-florin</a> (rent a real phone number for SMS/OTP codes) — same idea, for email instead of SMS.
+    Built by the same team as <a href="https://flo-voice1.com/?ref=receivemail-site">sms-florin</a> (rent a real phone number for SMS/OTP codes) — same idea, for email instead of SMS. Building an MCP server? <a href="https://mcpscan.flo-voice1.com/?ref=receivemail-site">mcp-ssrf-scan</a> catches SSRF in tool handlers.
   </footer>
 </div>
 <script>
