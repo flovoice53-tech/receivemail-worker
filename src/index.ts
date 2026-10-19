@@ -465,6 +465,11 @@ export default {
       });
     }
 
+    // IndexNow ownership key (same key on every host, see public/80c5e6c528195e6dc886ed6fc86c04b4.txt in sms-florin).
+    if (request.method === "GET" && parts.length === 1 && parts[0] === "80c5e6c528195e6dc886ed6fc86c04b4.txt") {
+      return new Response("80c5e6c528195e6dc886ed6fc86c04b4", { headers: { "content-type": "text/plain;charset=utf-8" } });
+    }
+
     if (request.method === "GET" && parts.length === 1 && parts[0] === "robots.txt") {
       return new Response(
         "User-agent: *\nAllow: /\nDisallow: /mailboxes\nSitemap: https://receivemail.dev/sitemap.xml\n",
