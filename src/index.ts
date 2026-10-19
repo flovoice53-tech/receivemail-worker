@@ -104,6 +104,34 @@ function tooManyRequests(): Response {
   });
 }
 
+// ip-api.com's free /batch endpoint (HTTP only on the free tier, no key
+// needed): up to 100 IPs per call, 45 req/min — called once/day from the
+// cron, not from the hot create path, so this never adds latency to a real
+// request. Classifies an IP as "bot-ish" if it's a known proxy or a
+// datacenter/hosting range — real residential/mobile traffic is neither.
+// Best-effort: a lookup failure just leaves that IP unclassified (counted
+// as real), never blocks or fails the stats snapshot.
+async function classifyBotIps(ips: string[]): Promise<Set<string>> {
+  const bad = new Set<string>();
+  for (let i = 0; i < ips.length; i += 100) {
+    const batch = ips.slice(i, i + 100);
+    try {
+      const res = await fetch("http://ip-api.com/batch?fields=query,proxy,hosting", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(batch),
+      });
+      const results = (await res.json()) as Array<{ query: string; proxy?: boolean; hosting?: boolean }>;
+      for (const r of results) {
+        if (r.proxy || r.hosting) bad.add(r.query);
+      }
+    } catch (err) {
+      console.error("classifyBotIps batch failed", err);
+    }
+  }
+  return bad;
+}
+
 // Fixed-window counter in D1. Not perfectly atomic under heavy concurrent
 // load from the same IP (read-then-write race, same class of accepted risk
 // as the sms-florin free-rental per-IP guard) — fine for the current low
@@ -111,7 +139,9 @@ function tooManyRequests(): Response {
 // abused at volume.
 // Snapshot one UTC day into daily_stats. Must run before scheduled() prunes:
 // the cron fires at 03:00 UTC, when all of yesterday's mail and its
-// create:daily bucket still exist. INSERT OR REPLACE so a re-run is harmless.
+// create:daily bucket still exist (mailboxes created yesterday, max 60min
+// TTL, are already past expires_at but not yet deleted — that happens later
+// in scheduled()). INSERT OR REPLACE so a re-run is harmless.
 async function recordDailyStats(env: Env, day: string): Promise<void> {
   const created = await env.DB.prepare(`SELECT count FROM rate_limits WHERE bucket_key = ?`)
     .bind(`create:daily:${day}`)
@@ -141,10 +171,54 @@ async function recordDailyStats(env: Env, day: string): Promise<void> {
     .bind(day, ...ownArgs)
     .all<{ domain: string; n: number }>();
 
+  // Bot/VPN classification — done in JS (not a SQL IN(...) with one bound
+  // param per IP) to sidestep D1's bound-parameter cap, which a bad day
+  // could exceed. Pulls every mailbox created today with its creator_ip
+  // (captured at POST /mailboxes time), classifies the distinct IPs once,
+  // then counts in memory.
+  const { results: dayMailboxes } = await env.DB.prepare(
+    `SELECT address, creator_ip FROM mailboxes WHERE date(created_at) = ? AND creator_ip IS NOT NULL`,
+  )
+    .bind(day)
+    .all<{ address: string; creator_ip: string }>();
+
+  let suspectedBotMailboxes = 0;
+  let suspectedBotExternalEmails = 0;
+  if (dayMailboxes.length > 0) {
+    const distinctIps = [...new Set(dayMailboxes.map((m) => m.creator_ip))];
+    const badIps = await classifyBotIps(distinctIps);
+    if (badIps.size > 0) {
+      const botAddresses = new Set(
+        dayMailboxes.filter((m) => badIps.has(m.creator_ip)).map((m) => m.address),
+      );
+      suspectedBotMailboxes = botAddresses.size;
+
+      if (botAddresses.size > 0) {
+        const { results: dayExternalEmails } = await env.DB.prepare(
+          `SELECT mailbox FROM emails WHERE date(received_at) = ? AND ${ownFilter}`,
+        )
+          .bind(day, ...ownArgs)
+          .all<{ mailbox: string }>();
+        suspectedBotExternalEmails = dayExternalEmails.filter((e) => botAddresses.has(e.mailbox)).length;
+      }
+    }
+  }
+
+  // Reddit verification codes are counted separately: on 2026-10-19 they were
+  // ~91% of external mail, so the plain external_emails total overstates real
+  // usage. See schema_v8.sql.
+  const redditCodes = await env.DB.prepare(
+    `SELECT count(*) AS n FROM emails
+     WHERE date(received_at) = ? AND subject LIKE '%Reddit verification%' AND ${ownFilter}`,
+  )
+    .bind(day, ...ownArgs)
+    .first<{ n: number }>();
+
   await env.DB.prepare(
     `INSERT OR REPLACE INTO daily_stats
-       (day, mailboxes_created, emails_received, external_emails, mailboxes_with_mail, top_sender_domains)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+       (day, mailboxes_created, emails_received, external_emails, mailboxes_with_mail, top_sender_domains,
+        suspected_bot_mailboxes, suspected_bot_external_emails, reddit_code_emails)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       day,
@@ -153,6 +227,9 @@ async function recordDailyStats(env: Env, day: string): Promise<void> {
       external?.n ?? 0,
       external?.boxes ?? 0,
       JSON.stringify(senders.map((s) => [s.domain, s.n])),
+      suspectedBotMailboxes,
+      suspectedBotExternalEmails,
+      redditCodes?.n ?? 0,
     )
     .run();
 }
@@ -587,11 +664,14 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
       const address = randomAddress();
       const secret = randomSecret();
       const expiresAt = new Date(Date.now() + ttlMinutes * 60_000).toISOString();
+      // Stored only for the daily bot/VPN-traffic classification in
+      // recordDailyStats — not exposed via any API response.
+      const creatorIp = request.headers.get("cf-connecting-ip") ?? null;
 
       await env.DB.prepare(
-        `INSERT INTO mailboxes (address, expires_at, secret, owner_key_hash, webhook_url) VALUES (?, ?, ?, ?, ?)`,
+        `INSERT INTO mailboxes (address, expires_at, secret, owner_key_hash, webhook_url, creator_ip) VALUES (?, ?, ?, ?, ?, ?)`,
       )
-        .bind(address, expiresAt, secret, paidKey?.key_hash ?? null, webhookUrl)
+        .bind(address, expiresAt, secret, paidKey?.key_hash ?? null, webhookUrl, creatorIp)
         .run();
 
       // secret is only ever returned here, at creation — the caller must
