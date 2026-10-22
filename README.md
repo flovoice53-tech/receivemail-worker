@@ -26,6 +26,7 @@ The `secret` returned at creation is the only credential — hold onto it, there
 | `POST /mailboxes` | Create a new address. Optional `{"ttlMinutes": 1-60}` body, default 15. Public, no token required. |
 | `GET /mailboxes/:address` | Metadata (created/expiry). Requires the mailbox's own `secret` as a Bearer token. |
 | `GET /mailboxes/:address/messages` | Last 50 messages, newest first. Same secret. |
+| `GET /mailboxes/:address/wait?timeout=25&since=<ISO>` | Long-poll: returns the newest message newer than `since` as soon as one arrives, or `{"timed_out":true}` after `timeout` seconds (max 25). Same secret. |
 
 ## Limits
 

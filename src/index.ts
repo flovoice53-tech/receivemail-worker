@@ -492,6 +492,7 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
 
 - \`POST /mailboxes\` — creates a random address (default 15min TTL, max 60min) and returns \`{address, expiresAt, secret}\`. No token required to create one.
 - \`GET /mailboxes/:address/messages\` — returns the last 50 messages for that address (\`from_address\`, \`subject\`, \`body_text\`, \`received_at\` in ISO 8601 UTC), authenticated with \`Authorization: Bearer <secret>\` using the mailbox's own \`secret\` from creation. Only reserved addresses can be read. Plain-text body only (no HTML, no attachments); mail is kept about 24h.
+- \`GET /mailboxes/:address/wait?timeout=25&since=<ISO>\` — long-poll: returns the newest message newer than \`since\` as soon as it arrives, or \`{"timed_out":true}\` after \`timeout\` seconds (max 25). Same secret. Call again on timeout.
 - Free, no signup, no API key. FAQ (Playwright/Cypress recipes, limits, retention): https://receivemail.dev/faq
 - Rate limited: 20 creates/min/IP, 5,000 creates/day globally.
 
@@ -718,6 +719,54 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
 
       if (!mailbox) return notFound();
       return Response.json(mailbox);
+    }
+
+    // GET /mailboxes/:address/wait?timeout=25&since=<ISO> — long-poll: holds
+    // the request open until a message newer than `since` (default: any
+    // message) exists, then returns the newest one. Saves clients from
+    // writing their own polling loop. Capped at 25s so one call stays well
+    // inside Workers limits; on timeout returns {timed_out:true} and the
+    // client simply calls again.
+    if (
+      request.method === "GET" &&
+      parts[0] === "mailboxes" &&
+      parts.length === 3 &&
+      parts[2] === "wait"
+    ) {
+      const address = decodeURIComponent(parts[1]).toLowerCase();
+      if (!(await canReadMailbox(env, request, address))) return unauthorized();
+
+      const timeoutSec = Math.min(Math.max(Number(url.searchParams.get("timeout") ?? 25) || 25, 1), 25);
+      const sinceParam = url.searchParams.get("since");
+      let sinceDb = "1970-01-01 00:00:00";
+      if (sinceParam) {
+        const t = new Date(sinceParam);
+        if (Number.isNaN(t.getTime())) {
+          return Response.json({ error: "since must be an ISO 8601 timestamp" }, { status: 400 });
+        }
+        sinceDb = t.toISOString().slice(0, 19).replace("T", " ");
+      }
+
+      const deadline = Date.now() + timeoutSec * 1000;
+      for (;;) {
+        const msg = await env.DB.prepare(
+          `SELECT from_address, subject, body_text, strftime('%Y-%m-%dT%H:%M:%SZ', received_at) AS received_at FROM emails WHERE mailbox = ? AND received_at > ? ORDER BY received_at DESC LIMIT 1`,
+        )
+          .bind(address, sinceDb)
+          .first<{ from_address: string; subject: string | null; body_text: string | null; received_at: string }>();
+        if (msg) {
+          const owner = await env.DB.prepare(`SELECT owner_key_hash FROM mailboxes WHERE address = ?`)
+            .bind(address)
+            .first<{ owner_key_hash: string | null }>();
+          return Response.json({
+            address,
+            timed_out: false,
+            message: owner?.owner_key_hash ? { ...msg, otp: extractOtp(msg.subject, msg.body_text) } : msg,
+          });
+        }
+        if (Date.now() + 2000 > deadline) return Response.json({ address, timed_out: true, message: null });
+        await new Promise((r) => setTimeout(r, 2000));
+      }
     }
 
     // GET /mailboxes/:address/messages — messages received for an address.

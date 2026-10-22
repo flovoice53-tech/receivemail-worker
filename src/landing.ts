@@ -163,6 +163,7 @@ curl https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/messages \\
         <tr><td><code>POST /mailboxes</code></td><td>Create a new address. Optional <code>{"ttlMinutes": 1-60}</code> body, default 15. Returns the address and a per-mailbox <code>secret</code> — save it, it's the only way to read this mailbox later.</td></tr>
         <tr><td><code>GET /mailboxes/:address</code></td><td>Mailbox metadata (created/expiry). Needs the mailbox's own secret as a Bearer token.</td></tr>
         <tr><td><code>GET /mailboxes/:address/messages</code></td><td>Last 50 messages received, newest first. Same secret.</td></tr>
+        <tr><td><code>GET /mailboxes/:address/wait</code></td><td>Long-poll: waits up to <code>timeout</code> seconds (max 25) for a message newer than <code>since</code> (ISO 8601), then returns it, or <code>{"timed_out":true}</code>. Same secret.</td></tr>
       </tbody>
     </table>
   </section>

@@ -57,7 +57,7 @@ cy.createMailbox().then((mb) =&gt; {
 <pre>curl https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/messages \\
   -H 'authorization: Bearer &lt;secret&gt;'
 <span class="comment"># =&gt; {"address":"...","messages":[{"from_address":"...","subject":"...","body_text":"...","received_at":"2026-09-26T04:54:46Z"}]}</span></pre>
-<p>Poll every few seconds until the message you expect shows up. Messages are newest first; <code>received_at</code> is ISO 8601 in UTC.</p>`,
+<p>Poll every few seconds until the message you expect shows up, or call <code>GET /mailboxes/:address/wait?timeout=25</code> with the same header: it holds the request open and returns as soon as a message arrives (<code>{"timed_out":true}</code> if none does). Messages are newest first; <code>received_at</code> is ISO 8601 in UTC.</p>`,
     text: "POST https://receivemail.dev/mailboxes (optional JSON {\"ttlMinutes\": 15}) returns {address, expiresAt, secret}. Send your email to the address, then GET https://receivemail.dev/mailboxes/{address}/messages with the header Authorization: Bearer {secret}; it returns {address, messages:[{from_address, subject, body_text, received_at}]}, newest first, received_at in ISO 8601 UTC. Poll every few seconds.",
   },
   {
