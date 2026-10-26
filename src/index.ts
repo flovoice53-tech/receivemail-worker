@@ -97,6 +97,28 @@ async function checkHourlyIpLimit(env: Env, key: string, max: number): Promise<b
   return true;
 }
 
+// Free-tier responses point here at the moment a limit actually bites (rate
+// limit hit, TTL capped, a code sitting in the body) — the generic `upgrade`
+// line on every create got 0 Pro signups in 4 weeks (2026-10-26).
+const PRO_URL = "https://receivemail.dev/#pro";
+
+function freeLimitHit(scope: "ip" | "daily"): Response {
+  const limit =
+    scope === "ip"
+      ? `Free tier allows ${RATE_LIMIT_MAX_CREATES} creates/min per IP.`
+      : "The shared free-tier daily limit is used up.";
+  return new Response(
+    JSON.stringify({
+      error: "rate limited, try again shortly",
+      upgrade: `${limit} Pro ($7/mo) gives your key its own ${PAID_CREATES_PER_MINUTE} creates/min, not shared with anyone: ${PRO_URL}`,
+    }),
+    { status: 429, headers: { "content-type": "application/json" } },
+  );
+}
+
+// The code itself is never shown to free callers — only that one was found.
+const OTP_UPGRADE = `This email contains a verification code. Pro ($7/mo) returns it ready in an \`otp\` field, no regex: ${PRO_URL}`;
+
 function tooManyRequests(): Response {
   return new Response(JSON.stringify({ error: "rate limited, try again shortly" }), {
     status: 429,
@@ -643,17 +665,19 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
       if (paidKey) {
         if (!(await checkKeyCreateLimit(env, paidKey.key_hash))) return tooManyRequests();
       } else {
-        if (!(await checkDailyGlobalLimit(env))) return tooManyRequests();
+        if (!(await checkDailyGlobalLimit(env))) return freeLimitHit("daily");
         const ip = request.headers.get("cf-connecting-ip") ?? "unknown";
-        if (!(await checkCreateRateLimit(env, ip))) return tooManyRequests();
+        if (!(await checkCreateRateLimit(env, ip))) return freeLimitHit("ip");
       }
 
       const maxTtl = paidKey ? PAID_MAX_TTL_MINUTES : MAX_TTL_MINUTES;
       let ttlMinutes = DEFAULT_TTL_MINUTES;
+      let ttlCapped = false;
       let webhookUrl: string | null = null;
       try {
         const body = (await request.json()) as { ttlMinutes?: unknown; webhookUrl?: unknown };
         if (typeof body?.ttlMinutes === "number" && Number.isFinite(body.ttlMinutes)) {
+          ttlCapped = body.ttlMinutes > maxTtl;
           ttlMinutes = Math.min(Math.max(1, body.ttlMinutes), maxTtl);
         }
         if (body?.webhookUrl !== undefined && body.webhookUrl !== null) {
@@ -695,8 +719,9 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
           tip: "Need the SMS verification code too? Real UK numbers: https://flo-voice1.com/?ref=receivemail-api",
           // Same "extra field, ignored by existing clients" pattern as `tip`.
           // Only anonymous callers see it — paid responses return early above.
-          upgrade:
-            "Want the verification code extracted for you (no regex), 24h mailboxes, or each email pushed to your webhook? https://receivemail.dev/guides/email-otp-webhook",
+          upgrade: ttlCapped
+            ? `ttlMinutes capped at ${MAX_TTL_MINUTES} on the free tier. Pro ($7/mo) keeps mailboxes up to 24h: ${PRO_URL}`
+            : "Want the verification code extracted for you (no regex), 24h mailboxes, or each email pushed to your webhook? https://receivemail.dev/guides/email-otp-webhook",
         },
         { status: 201 },
       );
@@ -758,10 +783,14 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
           const owner = await env.DB.prepare(`SELECT owner_key_hash FROM mailboxes WHERE address = ?`)
             .bind(address)
             .first<{ owner_key_hash: string | null }>();
+          if (owner?.owner_key_hash) {
+            return Response.json({ address, timed_out: false, message: { ...msg, otp: extractOtp(msg.subject, msg.body_text) } });
+          }
           return Response.json({
             address,
             timed_out: false,
-            message: owner?.owner_key_hash ? { ...msg, otp: extractOtp(msg.subject, msg.body_text) } : msg,
+            message: msg,
+            ...(extractOtp(msg.subject, msg.body_text) ? { upgrade: OTP_UPGRADE } : {}),
           });
         }
         if (Date.now() + 2000 > deadline) return Response.json({ address, timed_out: true, message: null });
@@ -803,7 +832,8 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
           messages: results.map((m) => ({ ...m, otp: extractOtp(m.subject, m.body_text) })),
         });
       }
-      return Response.json({ address, messages: results });
+      const hasCode = results.some((m) => extractOtp(m.subject, m.body_text));
+      return Response.json({ address, messages: results, ...(hasCode ? { upgrade: OTP_UPGRADE } : {}) });
     }
 
     return notFound();
