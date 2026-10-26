@@ -35,28 +35,118 @@ const SHARED_STYLE = `
   footer { margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--border); color: var(--text-dim); font-size: 0.88rem; }
 `;
 
+// Date the competitor facts below were last checked against each vendor's own
+// pricing/docs page. Bump it whenever the table is re-verified.
+const UPDATED_ISO = "2026-10-26";
+const UPDATED_LABEL = "26 October 2026";
+
+// Half the impressions on these pages come from plural searches
+// ("mailinator alternatives") — people want a list, not a one-on-one. Each
+// page leads with this list, minus the tool the page is about (its own
+// side-by-side covers that one). Facts from each vendor's pricing page.
+const ALTERNATIVES: { key: string; html: string }[] = [
+  {
+    key: "receivemail",
+    html: `<tr><td><strong><a href="/">receivemail.dev</a></strong></td><td>Free, no signup; Pro $7/mo</td><td>None</td><td>Yes, no key needed</td><td>Private (per-mailbox secret)</td><td>Free 60 min, Pro 24 h</td></tr>`,
+  },
+  {
+    key: "mailtm",
+    html: `<tr><td><strong><a href="https://mail.tm">mail.tm</a></strong></td><td>Free, no paid tiers</td><td>None (mailbox created via API)</td><td>Yes, no key; 8 req/s per IP</td><td>Private (password)</td><td>Not published</td></tr>`,
+  },
+  {
+    key: "mailsac",
+    html: `<tr><td><strong><a href="/compare/mailsac-alternative">Mailsac</a></strong></td><td>Free 1,500 ops/mo; from $18/mo</td><td>For API key / private inbox</td><td>Yes, with key</td><td>Public without account; 1 private address free</td><td>Plan-dependent</td></tr>`,
+  },
+  {
+    key: "mailinator",
+    html: `<tr><td><strong><a href="/compare/mailinator-alternative">Mailinator</a></strong></td><td>Public inboxes free; Verified Pro $0 on approval; Business $79/mo (yearly)</td><td>For private inboxes / API</td><td>Not on the public tier</td><td>Public, unless on a private domain</td><td>Temporary on the public tier</td></tr>`,
+  },
+  {
+    key: "mailslurp",
+    html: `<tr><td><strong><a href="/compare/mailslurp-alternative">MailSlurp</a></strong></td><td>Free: 100 inboxes, 500 emails/mo; from $19.99/mo</td><td>Required</td><td>Yes, with key</td><td>Private</td><td>Persistent</td></tr>`,
+  },
+  {
+    key: "mailosaur",
+    html: `<tr><td><strong><a href="/compare/mailosaur-alternative">Mailosaur</a></strong></td><td>No free plan; 14-day trial, from $20/mo (yearly)</td><td>Required</td><td>Yes, with key</td><td>Private (own server/domain)</td><td>Persistent</td></tr>`,
+  },
+  {
+    key: "testmail",
+    html: `<tr><td><strong><a href="https://testmail.app">testmail.app</a></strong></td><td>Free 100 emails/mo; from $9/mo (yearly)</td><td>Required</td><td>Full API from the $9 plan</td><td>Private namespace</td><td>Free 1 day</td></tr>`,
+  },
+  {
+    key: "mailpit",
+    html: `<tr><td><strong><a href="https://mailpit.axllent.org">Mailpit</a></strong></td><td>Free, self-hosted</td><td>None (you run it)</td><td>Yes (REST)</td><td>Your own server</td><td>Your choice</td></tr>`,
+  },
+];
+
+function alternativesTable(exclude: string): string {
+  const rows = ALTERNATIVES.filter((a) => a.key !== exclude)
+    .map((a) => a.html)
+    .join("\n      ");
+  return `
+  <h2>Alternatives at a glance</h2>
+  <table>
+    <thead><tr><th>Tool</th><th>Cost</th><th>Account</th><th>Read mail via API</th><th>Inbox privacy</th><th>Retention</th></tr></thead>
+    <tbody>
+      ${rows}
+    </tbody>
+  </table>
+  <p class="note">Checked against each vendor's pricing and docs pages on
+  ${UPDATED_LABEL}. Plans change — confirm on their sites before you commit.
+  Mailpit only catches mail your own app sends to it over SMTP; it can't receive
+  from a third-party service sending to a public address.</p>`;
+}
+
+function faqBlock(faq: { q: string; a: string }[]): string {
+  return `
+  <h2>FAQ</h2>
+  ${faq.map((f) => `<h3>${f.q}</h3>\n  <p>${f.a}</p>`).join("\n  ")}`;
+}
+
+function faqJsonLd(faq: { q: string; a: string }[]): string {
+  const strip = (s: string) => s.replace(/<[^>]+>/g, "");
+  return JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faq.map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: strip(f.a) },
+    })),
+  });
+}
+
 function page(opts: {
   slug: string;
+  // <title> as it shows in search results: short, competitor name first, so
+  // it isn't truncated and matches "X alternative(s)" queries. The longer
+  // `title` stays as the on-page h1.
+  seoTitle: string;
   title: string;
   description: string;
+  exclude: string;
   body: string;
+  faq: { q: string; a: string }[];
 }): string {
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${opts.title} — receivemail.dev</title>
+<title>${opts.seoTitle}</title>
 <link rel="icon" type="image/svg+xml" href="/icon.svg">
 <link rel="apple-touch-icon" href="/icon.png">
 <meta name="description" content="${opts.description}">
 <link rel="canonical" href="https://receivemail.dev/compare/${opts.slug}">
-<meta property="og:title" content="${opts.title}">
+<meta property="og:title" content="${opts.seoTitle}">
 <meta property="og:description" content="${opts.description}">
 <meta property="og:url" content="https://receivemail.dev/compare/${opts.slug}">
 <meta property="og:type" content="article">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Article","headline":${JSON.stringify(opts.title)},"description":${JSON.stringify(opts.description)},"url":"https://receivemail.dev/compare/${opts.slug}","author":{"@type":"Organization","name":"receivemail.dev","url":"https://receivemail.dev"},"publisher":{"@type":"Organization","name":"receivemail.dev","url":"https://receivemail.dev"}}
+{"@context":"https://schema.org","@type":"Article","headline":${JSON.stringify(opts.title)},"description":${JSON.stringify(opts.description)},"url":"https://receivemail.dev/compare/${opts.slug}","dateModified":"${UPDATED_ISO}","author":{"@type":"Organization","name":"receivemail.dev","url":"https://receivemail.dev"},"publisher":{"@type":"Organization","name":"receivemail.dev","url":"https://receivemail.dev"}}
+</script>
+<script type="application/ld+json">
+${faqJsonLd(opts.faq)}
 </script>
 <style>${SHARED_STYLE}</style>
 </head>
@@ -64,8 +154,10 @@ function page(opts: {
 <div class="wrap">
   <div class="logo"><a href="/">receivemail.dev</a> / compare</div>
   <h1>${opts.title}</h1>
-  <p class="meta">${opts.description}</p>
+  <p class="meta">${opts.description} Updated ${UPDATED_LABEL}.</p>
+  ${alternativesTable(opts.exclude)}
   ${opts.body}
+  ${faqBlock(opts.faq)}
   <footer>
     <a href="/">← receivemail.dev</a> · A disposable inbox via one API call, no signup.
     Built by the same team as <a href="https://flo-voice1.com">sms-florin</a>.
@@ -77,9 +169,25 @@ function page(opts: {
 
 const MAILSLURP_ALTERNATIVE = page({
   slug: "mailslurp-alternative",
-  title: "A free MailSlurp alternative for reading verification emails in tests",
+  seoTitle: "MailSlurp Alternatives: Free, No Signup | receivemail.dev",
+  title: "MailSlurp alternatives for reading verification emails in tests",
   description:
-    "receivemail.dev is a free, no-signup disposable inbox you read over HTTP. Here's how it compares to MailSlurp, and when each one is the right choice.",
+    "Free MailSlurp alternatives compared — receivemail.dev, mail.tm, Mailsac, Mailinator, testmail.app, Mailosaur and Mailpit: cost, signup, API access and retention.",
+  exclude: "mailslurp",
+  faq: [
+    {
+      q: "Is there a free MailSlurp alternative with no signup?",
+      a: `Yes. receivemail.dev and mail.tm both create a private inbox over the API with no account and no API key. MailSlurp itself has a free plan (100 inbox creations and 500 received emails a month), but it needs an account.`,
+    },
+    {
+      q: "Can a free alternative replace MailSlurp in CI?",
+      a: `If the test only signs up and reads back a verification code or link, yes. If it sends email, needs inboxes that persist for days, SMTP/IMAP or custom domains, stay on MailSlurp.`,
+    },
+    {
+      q: "Does receivemail.dev extract the verification code for me?",
+      a: `On the $7/mo Pro plan each message comes back with the code already extracted in an <code>otp</code> field; the $19/mo plan adds webhooks. The free tier returns the raw subject and body. See <a href="/guides/email-otp-webhook">the OTP guide</a>.`,
+    },
+  ],
   body: `
   <p><a href="https://www.mailslurp.com">MailSlurp</a> is a full email-infrastructure
   API — it can send and receive, gives you SMTP/IMAP access, permanent inboxes,
@@ -96,13 +204,13 @@ const MAILSLURP_ALTERNATIVE = page({
   <table>
     <thead><tr><th></th><th>receivemail.dev</th><th>MailSlurp</th></tr></thead>
     <tbody>
-      <tr><td>Price</td><td>Free</td><td>Free tier, then paid plans (from ~$20/mo as of 2026 — see their pricing page)</td></tr>
+      <tr><td>Price</td><td>Free; Pro $7/mo (24 h inboxes, extracted codes)</td><td>Free plan (100 inbox creations, 500 received emails / mo), paid from $19.99/mo</td></tr>
       <tr><td>Signup / account</td><td>None</td><td>Required</td></tr>
       <tr><td>API key to create an inbox</td><td>No</td><td>Yes</td></tr>
       <tr><td>Receive email via API</td><td>Yes</td><td>Yes</td></tr>
       <tr><td>Send email</td><td>No</td><td>Yes</td></tr>
       <tr><td>SMTP / IMAP access</td><td>No</td><td>Yes</td></tr>
-      <tr><td>Permanent inboxes</td><td>No — up to 60 min TTL</td><td>Yes</td></tr>
+      <tr><td>Permanent inboxes</td><td>No — up to 60 min free, 24 h on Pro</td><td>Yes</td></tr>
       <tr><td>Custom domains</td><td>No</td><td>Yes (paid)</td></tr>
       <tr><td>Phone / SMS</td><td>No (see <a href="https://flo-voice1.com">sms-florin</a>)</td><td>Yes</td></tr>
       <tr><td>Rate limit</td><td>20 inbox creations / min per IP</td><td>Plan-dependent</td></tr>
@@ -126,7 +234,7 @@ const MAILSLURP_ALTERNATIVE = page({
   <ul>
     <li>You need to <strong>send</strong> email, not just receive.</li>
     <li>You need inboxes that persist for days or weeks.</li>
-    <li>You need SMTP/IMAP, custom domains, attachments handling, or webhooks.</li>
+    <li>You need SMTP/IMAP, custom domains, or attachment handling.</li>
     <li>You need team accounts, audit logs, or SOC 2 for compliance.</li>
     <li>You're running high volume and want a paid SLA behind it.</li>
   </ul>
@@ -159,9 +267,25 @@ curl -s "https://receivemail.dev/mailboxes/$addr/messages" \\
 
 const MAILINATOR_ALTERNATIVE = page({
   slug: "mailinator-alternative",
-  title: "A private, free Mailinator alternative for verification emails",
+  seoTitle: "Mailinator Alternatives: Private & Free | receivemail.dev",
+  title: "Private, free Mailinator alternatives for verification emails",
   description:
-    "Mailinator's free inboxes are public — anyone can read them. receivemail.dev gives you a private throwaway inbox over one API call, still free, still no signup.",
+    "Mailinator's free inboxes are public and have no API. Private, free alternatives compared — receivemail.dev, mail.tm, Mailsac, MailSlurp, testmail.app and more.",
+  exclude: "mailinator",
+  faq: [
+    {
+      q: "Are Mailinator's free inboxes private?",
+      a: `No. On the free Public plan any inbox can be opened by anyone who types its name, and API access isn't included. Private inboxes come with Verified Pro (free, on approval) or the paid Business plan.`,
+    },
+    {
+      q: "What's a private Mailinator alternative with an API and no signup?",
+      a: `receivemail.dev: one unauthenticated <code>POST /mailboxes</code> returns a random address plus a secret, and only that secret can read the mail. mail.tm works similarly with an address and password.`,
+    },
+    {
+      q: "Why do some sites reject Mailinator addresses?",
+      a: `It's one of the best-known disposable domains, so many signup forms block it. A less-known domain is less likely to be blocked, though no disposable domain is guaranteed to pass every filter.`,
+    },
+  ],
   body: `
   <p><a href="https://www.mailinator.com">Mailinator</a> has been the go-to
   throwaway inbox for well over a decade. The free version is genuinely useful for
@@ -169,23 +293,23 @@ const MAILINATOR_ALTERNATIVE = page({
   inbox, read the email. For automated tests and for anything you'd rather not have
   strangers see, though, two things get in the way — the free inboxes are
   <strong>public and world-readable</strong>, and programmatic/API access plus
-  private domains are on the paid plans.</p>
+  private domains need Verified Pro (free, on approval) or a paid plan.</p>
 
   <p><a href="/">receivemail.dev</a> covers the same "read a verification email in
   a test" job, but every address is <strong>private to whoever created it</strong>
   (reads are gated by a per-mailbox secret returned at creation), and API access is
-  the only interface — there's nothing to log into and nothing to pay.</p>
+  the only interface — there's nothing to log into, and the free tier costs nothing.</p>
 
   <h2>Side by side</h2>
   <table>
-    <thead><tr><th></th><th>receivemail.dev</th><th>Mailinator (free)</th><th>Mailinator (paid)</th></tr></thead>
+    <thead><tr><th></th><th>receivemail.dev</th><th>Mailinator Public (free)</th><th>Mailinator Verified Pro / Business</th></tr></thead>
     <tbody>
-      <tr><td>Price</td><td>Free</td><td>Free</td><td>From ~$59/mo (check current pricing)</td></tr>
+      <tr><td>Price</td><td>Free; Pro $7/mo</td><td>Free</td><td>Verified Pro $0 on approval; Business $79/mo billed yearly</td></tr>
       <tr><td>Signup / account</td><td>None</td><td>None</td><td>Required</td></tr>
-      <tr><td>Inbox privacy</td><td>Private — secret required to read</td><td>Public — anyone who guesses the name reads it</td><td>Private team domain</td></tr>
-      <tr><td>API to read messages</td><td>Yes</td><td>No (web UI / RSS only)</td><td>Yes</td></tr>
-      <tr><td>Private / custom domain</td><td>No (shared domain, unguessable address)</td><td>No</td><td>Yes</td></tr>
-      <tr><td>Retention</td><td>Up to 60 min TTL</td><td>A few hours, best-effort</td><td>Configurable</td></tr>
+      <tr><td>Inbox privacy</td><td>Private — secret required to read</td><td>Public — anyone who guesses the name reads it</td><td>Private domain</td></tr>
+      <tr><td>API to read messages</td><td>Yes</td><td>No (web UI only)</td><td>Yes</td></tr>
+      <tr><td>Private / custom domain</td><td>No (shared domain, unguessable address)</td><td>No</td><td>Yes (1 on Verified Pro)</td></tr>
+      <tr><td>Retention</td><td>Up to 60 min free, 24 h on Pro</td><td>Temporary</td><td>Permanent storage (10 MB on Verified Pro)</td></tr>
       <tr><td>Send email</td><td>No</td><td>No</td><td>No</td></tr>
       <tr><td>Good for</td><td>Automated tests, CI, throwaway checks</td><td>One-off manual checks</td><td>QA teams needing a private shared domain</td></tr>
     </tbody>
@@ -210,7 +334,7 @@ const MAILINATOR_ALTERNATIVE = page({
   <h2>When Mailinator is still the right call</h2>
   <ul>
     <li>You just want to eyeball one email by hand — the public inbox is faster than any API.</li>
-    <li>Your team wants a <strong>private shared domain</strong> everyone uses (that's the paid plan's core value).</li>
+    <li>Your team wants a <strong>private shared domain</strong> everyone uses (that's what Verified Pro and Business add).</li>
     <li>You need messages to stick around longer than an hour.</li>
     <li>You're already invested in Mailinator's rule-based routing / webhooks.</li>
   </ul>
@@ -239,9 +363,25 @@ curl -s "https://receivemail.dev/mailboxes/$addr/messages" \\
 
 const MAILOSAUR_ALTERNATIVE = page({
   slug: "mailosaur-alternative",
-  title: "A free Mailosaur alternative for email verification in tests",
+  seoTitle: "Mailosaur Alternatives for Email Testing | receivemail.dev",
+  title: "Free Mailosaur alternatives for email verification in tests",
   description:
-    "Mailosaur is a paid email + SMS testing platform for QA teams. If you only need to read a verification email in an automated test, receivemail.dev does that free with no signup.",
+    "Mailosaur has no free plan. Free and cheaper alternatives for reading verification emails in tests compared — receivemail.dev, mail.tm, Mailsac, MailSlurp, testmail.app and more.",
+  exclude: "mailosaur",
+  faq: [
+    {
+      q: "Does Mailosaur have a free plan?",
+      a: `No. It offers a 14-day trial; paid plans start from $20/mo billed annually.`,
+    },
+    {
+      q: "What's the cheapest Mailosaur alternative for CI email tests?",
+      a: `For reading a verification code or link, receivemail.dev and mail.tm are free with no signup. Mailsac, MailSlurp and testmail.app have free tiers that need an account.`,
+    },
+    {
+      q: "Is there an alternative that also tests SMS?",
+      a: `None of the free email tools above receive SMS. For real UK numbers that receive verification texts, see <a href="https://flo-voice1.com">sms-florin</a>, from the same team as receivemail.dev.`,
+    },
+  ],
   body: `
   <p><a href="https://mailosaur.com">Mailosaur</a> is a polished, paid testing
   platform: dedicated email servers, a real domain per account, SMS testing with
@@ -260,14 +400,14 @@ const MAILOSAUR_ALTERNATIVE = page({
   <table>
     <thead><tr><th></th><th>receivemail.dev</th><th>Mailosaur</th></tr></thead>
     <tbody>
-      <tr><td>Price</td><td>Free</td><td>Paid, with a free trial (check current pricing)</td></tr>
+      <tr><td>Price</td><td>Free; Pro $7/mo</td><td>No free plan; 14-day trial, then from $20/mo billed annually</td></tr>
       <tr><td>Signup / account</td><td>None</td><td>Required</td></tr>
       <tr><td>Receive email via API</td><td>Yes</td><td>Yes</td></tr>
       <tr><td>SMS / phone testing</td><td>No (see <a href="https://flo-voice1.com">sms-florin</a>)</td><td>Yes</td></tr>
       <tr><td>Dedicated domain per account</td><td>No — shared domain, random address</td><td>Yes</td></tr>
       <tr><td>Email auth checks (SPF/DKIM/DMARC), spam score</td><td>No</td><td>Yes</td></tr>
       <tr><td>Official framework libraries</td><td>No — plain HTTP (plus a Playwright helper)</td><td>Yes, many</td></tr>
-      <tr><td>Inbox lifetime</td><td>Up to 60 min TTL</td><td>Persistent</td></tr>
+      <tr><td>Inbox lifetime</td><td>Up to 60 min free, 24 h on Pro</td><td>Persistent</td></tr>
       <tr><td>Best for</td><td>Reading a code/link in CI, hobby projects, OSS</td><td>QA teams testing email & SMS as a discipline</td></tr>
     </tbody>
   </table>
@@ -317,9 +457,21 @@ curl -s "https://receivemail.dev/mailboxes/$addr/messages" \\
 
 const MAILSAC_ALTERNATIVE = page({
   slug: "mailsac-alternative",
-  title: "A free Mailsac alternative — no API key needed to start",
+  seoTitle: "Mailsac Alternatives: No API Key Needed | receivemail.dev",
+  title: "Mailsac alternatives — no API key needed to start",
   description:
-    "Mailsac's public inboxes need no signup either, but reading them over the API does. receivemail.dev skips the API key entirely — one POST, no account.",
+    "Mailsac's API needs an account and key. Alternatives compared — receivemail.dev and mail.tm (no key), Mailinator, MailSlurp, testmail.app, Mailosaur and Mailpit.",
+  exclude: "mailsac",
+  faq: [
+    {
+      q: "Is there a Mailsac alternative that needs no API key?",
+      a: `Yes. receivemail.dev and mail.tm both let you create a private inbox and read it over the API without an account or key.`,
+    },
+    {
+      q: "How many free operations does Mailsac give?",
+      a: `1,500 operations a month and 1 private address on the free account; paid plans start at $18/mo.`,
+    },
+  ],
   body: `
   <p><a href="https://mailsac.com">Mailsac</a> is a mature email-testing API:
   any <code>@mailsac.com</code> address receives mail with no signup, and a free
@@ -337,13 +489,13 @@ const MAILSAC_ALTERNATIVE = page({
   <table>
     <thead><tr><th></th><th>receivemail.dev</th><th>Mailsac</th></tr></thead>
     <tbody>
-      <tr><td>Price</td><td>Free</td><td>Free tier (1,500 ops/mo), then from $18/mo</td></tr>
+      <tr><td>Price</td><td>Free; Pro $7/mo</td><td>Free tier (1,500 ops/mo), then from $18/mo</td></tr>
       <tr><td>Signup / account</td><td>None</td><td>Not required for public inboxes; required for API key / private inboxes</td></tr>
       <tr><td>API key</td><td>No</td><td>Yes, for API access</td></tr>
       <tr><td>Private inbox without signup</td><td>Yes — every inbox is private by default</td><td>No — no-signup inboxes are public</td></tr>
       <tr><td>Operations/month limit</td><td>None published (rate-limited per IP instead)</td><td>1,500 free, then plan-based</td></tr>
       <tr><td>Own domain support</td><td>No</td><td>Yes (paid)</td></tr>
-      <tr><td>Retention</td><td>Up to 60 min TTL</td><td>Longer, plan-dependent</td></tr>
+      <tr><td>Retention</td><td>Up to 60 min free, 24 h on Pro</td><td>Longer, plan-dependent</td></tr>
     </tbody>
   </table>
   <p class="note">Mailsac's plans and operation limits change over time — see
