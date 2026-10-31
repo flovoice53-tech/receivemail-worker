@@ -127,7 +127,11 @@ function page(opts: {
   exclude: string;
   body: string;
   faq: { q: string; a: string }[];
+  // A page whose facts were checked on a different day than UPDATED_*.
+  updated?: { iso: string; label: string };
 }): string {
+  const updatedIso = opts.updated?.iso ?? UPDATED_ISO;
+  const updatedLabel = opts.updated?.label ?? UPDATED_LABEL;
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -143,7 +147,7 @@ function page(opts: {
 <meta property="og:url" content="https://receivemail.dev/compare/${opts.slug}">
 <meta property="og:type" content="article">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Article","headline":${JSON.stringify(opts.title)},"description":${JSON.stringify(opts.description)},"url":"https://receivemail.dev/compare/${opts.slug}","dateModified":"${UPDATED_ISO}","author":{"@type":"Organization","name":"receivemail.dev","url":"https://receivemail.dev"},"publisher":{"@type":"Organization","name":"receivemail.dev","url":"https://receivemail.dev"}}
+{"@context":"https://schema.org","@type":"Article","headline":${JSON.stringify(opts.title)},"description":${JSON.stringify(opts.description)},"url":"https://receivemail.dev/compare/${opts.slug}","dateModified":"${updatedIso}","author":{"@type":"Organization","name":"receivemail.dev","url":"https://receivemail.dev"},"publisher":{"@type":"Organization","name":"receivemail.dev","url":"https://receivemail.dev"}}
 </script>
 <script type="application/ld+json">
 ${faqJsonLd(opts.faq)}
@@ -154,7 +158,7 @@ ${faqJsonLd(opts.faq)}
 <div class="wrap">
   <div class="logo"><a href="/">receivemail.dev</a> / compare</div>
   <h1>${opts.title}</h1>
-  <p class="meta">${opts.description} Updated ${UPDATED_LABEL}.</p>
+  <p class="meta">${opts.description} Updated ${updatedLabel}.</p>
   ${alternativesTable(opts.exclude)}
   ${opts.body}
   ${faqBlock(opts.faq)}
@@ -536,11 +540,95 @@ curl -s "https://receivemail.dev/mailboxes/$addr/messages" \\
 `,
 });
 
+// Not a test-inbox tool like the others: Resend Inboxes gives AI agents a
+// permanent address of their own. People land here from "AI agent email"
+// searches, so the page says plainly which job each one does.
+const RESEND_INBOXES_ALTERNATIVE = page({
+  slug: "resend-inboxes-alternative",
+  seoTitle: "Resend Inboxes Alternative for Tests | receivemail.dev",
+  title: "Resend Inboxes vs receivemail.dev — permanent agent inbox or throwaway test inbox",
+  description:
+    "Resend Inboxes gives an AI agent a permanent address it can send and receive from. receivemail.dev gives you throwaway, receive-only addresses for tests — no signup, no inbox cap.",
+  exclude: "",
+  updated: { iso: "2026-10-31", label: "31 October 2026" },
+  faq: [
+    {
+      q: "Is receivemail.dev a replacement for Resend Inboxes?",
+      a: `Only for one job: receiving email in tests. It can't send mail, and its addresses expire after at most 60 minutes (24 h on Pro). For an agent that needs its own long-lived address, use Resend Inboxes.`,
+    },
+    {
+      q: "How many inboxes do I get for free?",
+      a: `receivemail.dev has no inbox cap: create as many as your tests need, up to 20 a minute per IP. Resend's free plan lists up to 3 inboxes and 3,000 emails sent or received.`,
+    },
+    {
+      q: "Do I need an account?",
+      a: `Not for receivemail.dev: one unauthenticated <code>POST /mailboxes</code> returns an address and a secret. Resend Inboxes is part of a Resend account.`,
+    },
+  ],
+  body: `
+  <p><a href="https://resend.com/products/inboxes">Resend Inboxes</a> gives each AI
+  agent an email address of its own: it can receive mail, reply and send, as part
+  of a Resend account. The free plan lists up to 3 inboxes and 3,000 emails sent
+  or received. It fits an agent that needs to be reachable at the same address
+  for weeks — taking tasks, approvals or replies by email.</p>
+
+  <p><a href="/">receivemail.dev</a> does a narrower job: <strong>create a fresh
+  address from code, receive one email, read it, throw the address away.</strong>
+  No account, no key, no limit on how many inboxes you create (only a rate limit:
+  20 a minute per IP). That is what a test suite or an agent testing a signup
+  flow needs — a new address every run, never reused.</p>
+
+  <h2>Side by side</h2>
+  <table>
+    <thead><tr><th></th><th>receivemail.dev</th><th>Resend Inboxes</th></tr></thead>
+    <tbody>
+      <tr><td>Made for</td><td>Tests: verification emails, signup flows</td><td>AI agents with a permanent address</td></tr>
+      <tr><td>Account / signup</td><td>None</td><td>Resend account</td></tr>
+      <tr><td>Free inboxes</td><td>No cap (20 new per minute per IP)</td><td>Up to 3</td></tr>
+      <tr><td>Free email volume</td><td>No monthly quota (rate-limited instead)</td><td>3,000 emails sent/received</td></tr>
+      <tr><td>Send email</td><td>No — receive only</td><td>Yes</td></tr>
+      <tr><td>Address lifetime</td><td>1–60 min free, up to 24 h on Pro</td><td>Permanent</td></tr>
+      <tr><td>Verification code extracted</td><td>Yes, <code>otp</code> field on Pro</td><td>—</td></tr>
+      <tr><td>Push instead of polling</td><td>Signed webhooks on Pro + Webhooks ($19/mo)</td><td>Yes</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Resend's details from <a href="https://resend.com/products/inboxes">resend.com/products/inboxes</a>
+  on 31 October 2026 — check there for current plans.</p>
+
+  <h2>When receivemail.dev fits</h2>
+  <ul>
+    <li>Every test run needs a brand-new address, often many in parallel.</li>
+    <li>You only need to read a code or link, then forget the address.</li>
+    <li>You don't want an account or key in CI, or for contributors running the suite.</li>
+  </ul>
+
+  <h2>When Resend Inboxes fits</h2>
+  <ul>
+    <li>Your agent must keep the same address and be emailed by people over time.</li>
+    <li>It needs to reply or send, not just receive.</li>
+    <li>You already send through Resend and want the inbox in the same account.</li>
+  </ul>
+
+  <h2>A throwaway inbox in two calls</h2>
+  <pre>resp=$(curl -s -X POST https://receivemail.dev/mailboxes)
+addr=$(echo "$resp" | jq -r .address)
+secret=$(echo "$resp" | jq -r .secret)
+
+<span class="comment"># ... sign up somewhere with $addr ...</span>
+
+curl -s "https://receivemail.dev/mailboxes/$addr/wait?timeout=25" \\
+  -H "Authorization: Bearer $secret"</pre>
+  <p>More recipes: <a href="/guides/testing-verification-emails">the CI testing guide</a>
+  and <a href="/guides/email-otp-webhook">codes without regex or polling</a>.</p>
+`,
+});
+
 export const COMPARE: Record<string, string> = {
   "mailslurp-alternative": MAILSLURP_ALTERNATIVE,
   "mailinator-alternative": MAILINATOR_ALTERNATIVE,
   "mailosaur-alternative": MAILOSAUR_ALTERNATIVE,
   "mailsac-alternative": MAILSAC_ALTERNATIVE,
+  "resend-inboxes-alternative": RESEND_INBOXES_ALTERNATIVE,
 };
 
 export const COMPARE_SLUGS = Object.keys(COMPARE);

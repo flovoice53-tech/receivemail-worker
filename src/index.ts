@@ -529,6 +529,7 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
 - [Landing page / quickstart](https://receivemail.dev/): curl examples, full endpoint reference.
 - [Testing email verification flows in CI](https://receivemail.dev/guides/testing-verification-emails)
 - [Getting verification codes without regex or polling (otp field, webhooks)](https://receivemail.dev/guides/email-otp-webhook)
+- [Resend Inboxes vs receivemail.dev](https://receivemail.dev/compare/resend-inboxes-alternative): permanent agent inbox (Resend) or throwaway receive-only test inbox (this).
 
 ## Related
 

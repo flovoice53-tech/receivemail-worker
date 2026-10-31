@@ -137,6 +137,7 @@ export const LANDING_HTML = `<!doctype html>
     <h1>A real inbox, on demand. One API call, no signup.</h1>
     <p class="lede">Spin up a disposable email address that actually receives mail, then poll it from your test suite or your own script. Built for verification-email testing, signup-flow QA, and anywhere you'd otherwise burn a real inbox.</p>
     <span class="badge">Free — no API key required to create a mailbox</span>
+    <p class="lede">No signup, no inbox cap: throwaway addresses for tests. Need a permanent inbox for an AI agent instead? <a href="/compare/resend-inboxes-alternative">How we compare to Resend Inboxes</a>.</p>
   </header>
 
   <section>
@@ -214,6 +215,7 @@ curl https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/messages \\
       <li><a href="/compare/mailinator-alternative">A private, free Mailinator alternative for verification emails</a></li>
       <li><a href="/compare/mailosaur-alternative">A free Mailosaur alternative for email verification in tests</a></li>
       <li><a href="/compare/mailsac-alternative">A free Mailsac alternative — no API key needed to start</a></li>
+      <li><a href="/compare/resend-inboxes-alternative">Resend Inboxes vs receivemail.dev — permanent agent inbox or throwaway test inbox</a></li>
     </ul>
   </section>
 
