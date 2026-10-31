@@ -548,7 +548,7 @@ const RESEND_INBOXES_ALTERNATIVE = page({
   seoTitle: "Resend Inboxes Alternative for Tests | receivemail.dev",
   title: "Resend Inboxes vs receivemail.dev — permanent agent inbox or throwaway test inbox",
   description:
-    "Resend Inboxes gives an AI agent a permanent address it can send and receive from. receivemail.dev gives you throwaway, receive-only addresses for tests — no signup, no inbox cap.",
+    "Resend Inboxes gives an AI agent a permanent address it can send and receive from. receivemail.dev gives you throwaway, receive-only addresses for tests — no signup, no per-account inbox limit.",
   exclude: "",
   updated: { iso: "2026-10-31", label: "31 October 2026" },
   faq: [
@@ -558,7 +558,7 @@ const RESEND_INBOXES_ALTERNATIVE = page({
     },
     {
       q: "How many inboxes do I get for free?",
-      a: `receivemail.dev has no inbox cap: create as many as your tests need, up to 20 a minute per IP. Resend's free plan lists up to 3 inboxes and 3,000 emails sent or received.`,
+      a: `receivemail.dev has no per-account inbox limit: create a fresh one for every test, up to 20 a minute per IP (the free tier also has a daily limit shared by all users; Pro keys get 120 a minute). Resend's free plan lists up to 3 inboxes and 3,000 emails sent or received.`,
     },
     {
       q: "Do I need an account?",
@@ -574,8 +574,8 @@ const RESEND_INBOXES_ALTERNATIVE = page({
 
   <p><a href="/">receivemail.dev</a> does a narrower job: <strong>create a fresh
   address from code, receive one email, read it, throw the address away.</strong>
-  No account, no key, no limit on how many inboxes you create (only a rate limit:
-  20 a minute per IP). That is what a test suite or an agent testing a signup
+  No account, no key, no per-account inbox limit (20 new a minute per IP, and a
+  daily limit shared by all free users; Pro keys get 120 a minute). That is what a test suite or an agent testing a signup
   flow needs — a new address every run, never reused.</p>
 
   <h2>Side by side</h2>
@@ -584,8 +584,8 @@ const RESEND_INBOXES_ALTERNATIVE = page({
     <tbody>
       <tr><td>Made for</td><td>Tests: verification emails, signup flows</td><td>AI agents with a permanent address</td></tr>
       <tr><td>Account / signup</td><td>None</td><td>Resend account</td></tr>
-      <tr><td>Free inboxes</td><td>No cap (20 new per minute per IP)</td><td>Up to 3</td></tr>
-      <tr><td>Free email volume</td><td>No monthly quota (rate-limited instead)</td><td>3,000 emails sent/received</td></tr>
+      <tr><td>Free inboxes</td><td>No per-account limit (20 new per minute per IP, shared daily limit)</td><td>Up to 3</td></tr>
+      <tr><td>Free email volume</td><td>No monthly quota per account (rate-limited instead)</td><td>3,000 emails sent/received</td></tr>
       <tr><td>Send email</td><td>No — receive only</td><td>Yes</td></tr>
       <tr><td>Address lifetime</td><td>1–60 min free, up to 24 h on Pro</td><td>Permanent</td></tr>
       <tr><td>Verification code extracted</td><td>Yes, <code>otp</code> field on Pro</td><td>—</td></tr>
