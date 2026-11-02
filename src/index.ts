@@ -4,6 +4,7 @@ import { GUIDES, GUIDE_SLUGS } from "./guides.js";
 import { COMPARE, COMPARE_SLUGS } from "./compare.js";
 import { FAQ_HTML } from "./faq.js";
 import { ICON_PNG_BASE64, ICON_SVG } from "./icon.js";
+import { AI_CATALOG, HOME_LINK_HEADER, LANDING_MD, OPENAPI, PRICING_HTML, SITE_UPDATED, WHEN_TO_USE } from "./agents.js";
 import {
   type BillingEnv,
   PAID_CREATES_PER_MINUTE,
@@ -481,10 +482,36 @@ export default {
     const url = new URL(request.url);
     const parts = url.pathname.split("/").filter(Boolean);
 
+    // Same URL, two representations: agents that ask for Markdown get the
+    // Markdown twin, browsers get HTML. Vary tells caches the two differ.
     if (request.method === "GET" && parts.length === 0) {
-      return new Response(LANDING_HTML, {
-        headers: { "content-type": "text/html;charset=utf-8" },
+      // AI assistants fetching on a user's behalf get Markdown even when they ask for HTML.
+      const wantsMarkdown =
+        /\btext\/markdown\b/i.test(request.headers.get("accept") ?? "") ||
+        /\b(ChatGPT-User|Claude-User|Perplexity-User)\b/i.test(request.headers.get("user-agent") ?? "");
+      return new Response(wantsMarkdown ? LANDING_MD : LANDING_HTML, {
+        headers: {
+          "content-type": wantsMarkdown ? "text/markdown;charset=utf-8" : "text/html;charset=utf-8",
+          vary: "Accept, User-Agent",
+          link: HOME_LINK_HEADER,
+        },
       });
+    }
+
+    if (request.method === "GET" && parts.length === 1 && parts[0] === "index.md") {
+      return new Response(LANDING_MD, { headers: { "content-type": "text/markdown;charset=utf-8" } });
+    }
+
+    if (request.method === "GET" && parts.length === 1 && parts[0] === "openapi.json") {
+      return Response.json(OPENAPI, { headers: { "access-control-allow-origin": "*" } });
+    }
+
+    if (request.method === "GET" && parts.length === 2 && parts[0] === ".well-known" && parts[1] === "ai-catalog.json") {
+      return Response.json(AI_CATALOG, { headers: { "access-control-allow-origin": "*" } });
+    }
+
+    if (request.method === "GET" && parts.length === 1 && parts[0] === "pricing") {
+      return new Response(PRICING_HTML, { headers: { "content-type": "text/html;charset=utf-8" } });
     }
 
     // IndexNow ownership key (same key on every host, see public/80c5e6c528195e6dc886ed6fc86c04b4.txt in sms-florin).
@@ -517,12 +544,15 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
 - \`GET /mailboxes/:address/wait?timeout=25&since=<ISO>\` — long-poll: returns the newest message newer than \`since\` as soon as it arrives, or \`{"timed_out":true}\` after \`timeout\` seconds (max 25). Same secret. Call again on timeout.
 - Free, no signup, no API key. FAQ (Playwright/Cypress recipes, limits, retention): https://receivemail.dev/faq
 - Rate limited: 20 creates/min/IP, 5,000 creates/day globally.
+- OpenAPI contract: https://receivemail.dev/openapi.json · AI Catalog: https://receivemail.dev/.well-known/ai-catalog.json · Markdown: https://receivemail.dev/index.md
+
+${WHEN_TO_USE}
 
 ## Paid plans (optional)
 
 - Pro, $7/mo: send \`Authorization: Bearer rmk_...\` on \`POST /mailboxes\` — mailboxes up to 24h (\`ttlMinutes\` up to 1440), 120 creates/min per key instead of the per-IP limit, and each message from \`GET /mailboxes/:address/messages\` includes an extracted \`otp\` field.
 - Pro + Webhooks, $19/mo: everything in Pro, plus pass \`webhookUrl\` (public https) when creating a mailbox and every incoming email is POSTed there as JSON \`{address, from, subject, bodyText, otp, receivedAt}\`, signed with \`X-Receivemail-Signature\` = hex HMAC-SHA256(your API key, raw body).
-- Subscribe on https://receivemail.dev/#pro — the API key is shown right after checkout.
+- Plans side by side: https://receivemail.dev/pricing — subscribe there or on https://receivemail.dev/#pro; the API key is shown right after checkout.
 
 ## Docs
 
@@ -577,13 +607,14 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
     if (request.method === "GET" && parts.length === 1 && parts[0] === "sitemap.xml") {
       const urls = [
         "https://receivemail.dev/",
+        "https://receivemail.dev/pricing",
         "https://receivemail.dev/faq",
         ...GUIDE_SLUGS.map((s) => `https://receivemail.dev/guides/${s}`),
         ...COMPARE_SLUGS.map((s) => `https://receivemail.dev/compare/${s}`),
       ];
       const xml =
         `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
-        urls.map((u) => `<url><loc>${u}</loc></url>`).join("\n") +
+        urls.map((u) => `<url><loc>${u}</loc><lastmod>${SITE_UPDATED}</lastmod></url>`).join("\n") +
         `\n</urlset>\n`;
       return new Response(xml, {
         headers: { "content-type": "application/xml;charset=utf-8" },

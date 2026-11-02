@@ -1,3 +1,5 @@
+import { AGENT_HEAD_LINKS } from "./agents.js";
+
 export const LANDING_HTML = `<!doctype html>
 <html lang="en">
 <head>
@@ -6,6 +8,7 @@ export const LANDING_HTML = `<!doctype html>
 <title>receivemail.dev — disposable email addresses via API</title>
 <link rel="icon" type="image/svg+xml" href="/icon.svg">
 <link rel="apple-touch-icon" href="/icon.png">
+${AGENT_HEAD_LINKS}
 <meta name="description" content="Get a real, receiving email address with one API call. No signup, no SMTP setup. Built for testing signup flows, verification emails, and QA automation.">
 <style>
   :root {
@@ -208,6 +211,8 @@ curl https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/messages \\
   <section>
     <h2>Guides</h2>
     <ul class="limits">
+      <li><a href="/pricing">Pricing</a> — free, Pro and Pro + Webhooks side by side</li>
+      <li><a href="/openapi.json">OpenAPI spec</a> — the full API contract, machine-readable</li>
       <li><a href="/faq">FAQ</a> — Playwright and Cypress recipes, limits, retention</li>
       <li><a href="/guides/testing-verification-emails">How to test email verification flows in CI</a> — shell and Playwright recipes</li>
       <li><a href="/guides/email-otp-webhook">Get verification codes without regex or polling</a> — pre-extracted <code>otp</code> field and webhooks</li>
