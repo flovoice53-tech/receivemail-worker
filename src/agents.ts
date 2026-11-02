@@ -81,6 +81,7 @@ export const HOME_JSON_LD = JSON.stringify({
 // (86–100% of discovery-file visits arrive through a link, per AgentReady).
 export const AGENT_HEAD_LINKS = `<link rel="ai-catalog" href="/.well-known/ai-catalog.json">
 <link rel="service-desc" type="application/openapi+json" href="/openapi.json">
+<link rel="mcp-server-card" type="application/json" href="/.well-known/mcp/server-card.json">
 <link rel="alternate" type="text/markdown" href="/index.md">
 <link rel="alternate" type="text/plain" href="/llms.txt">
 <script type="application/ld+json">${HOME_JSON_LD}</script>`;
@@ -302,6 +303,17 @@ export const AI_CATALOG = {
       url: `${BASE}/openapi.json`,
     },
     {
+      identifier: "urn:receivemail.dev:mcp:receivemail",
+      displayName: "receivemail.dev MCP server",
+      mediaType: "application/mcp-server-card+json",
+      type: "application/mcp-server-card+json",
+      representativeQueries: [
+        "Give me a temporary email address to sign up with",
+        "Wait for the verification email and tell me the code",
+      ],
+      url: `${BASE}/.well-known/mcp/server-card.json`,
+    },
+    {
       identifier: "urn:receivemail.dev:llms:summary",
       displayName: "receivemail.dev llms.txt",
       mediaType: "text/plain",
@@ -364,6 +376,8 @@ curl "https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/wait?timeou
 | \`GET /mailboxes/{address}\` | Mailbox metadata. Bearer = the mailbox secret. |
 | \`GET /mailboxes/{address}/messages\` | Last 50 messages, newest first. Same secret. |
 | \`GET /mailboxes/{address}/wait\` | Long-poll up to \`timeout\` seconds (max 25) for a message newer than \`since\`. Same secret. |
+
+MCP server: \`https://receivemail.dev/mcp\` (Streamable HTTP, no auth), e.g. \`claude mcp add --transport http receivemail https://receivemail.dev/mcp\`.
 
 Machine-readable contract: [openapi.json](https://receivemail.dev/openapi.json). Developer portal (keys, auth, SDKs, errors): [developers](https://receivemail.dev/developers).
 
@@ -473,7 +487,7 @@ nav a{margin-right:1rem}
 <p><a href="/">← receivemail.dev</a></p>
 <h1>Developers</h1>
 <p class="lede">Everything you need to integrate receivemail.dev: no account for the free tier, a paid key in one checkout, and a machine-readable contract.</p>
-<nav><a href="#start">Get started</a><a href="#keys">API keys</a><a href="#auth">Auth</a><a href="#endpoints">Endpoints</a><a href="#sdks">SDKs</a><a href="#limits">Limits &amp; errors</a></nav>
+<nav><a href="#start">Get started</a><a href="#mcp">MCP</a><a href="#keys">API keys</a><a href="#auth">Auth</a><a href="#endpoints">Endpoints</a><a href="#sdks">SDKs</a><a href="#limits">Limits &amp; errors</a></nav>
 
 <h2 id="start">1. Get started (no key)</h2>
 <pre>curl -X POST https://receivemail.dev/mailboxes
@@ -502,6 +516,13 @@ curl "https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/wait?timeou
 <tr><td><code>GET /mailboxes/{address}/wait</code></td><td>Long-poll up to 25 s for a message newer than <code>since</code>.</td></tr>
 </table>
 <p>Full contract with schemas and error codes: <a href="/openapi.json">openapi.json</a> (OpenAPI 3.1). Agent-facing files: <a href="/llms.txt">llms.txt</a>, <a href="/.well-known/ai-catalog.json">ai-catalog.json</a>, <a href="/index.md">index.md</a>. In a WebMCP-aware browser the homepage also exposes <code>create_mailbox</code>, <code>wait_for_email</code> and <code>list_messages</code> as tools.</p>
+
+<h2 id="mcp">MCP server</h2>
+<p>Remote MCP server at <code>https://receivemail.dev/mcp</code> (Streamable HTTP, no auth needed) with the tools <code>create_mailbox</code>, <code>wait_for_email</code> and <code>list_messages</code>. Add it to Claude Code with:</p>
+<pre>claude mcp add --transport http receivemail https://receivemail.dev/mcp</pre>
+<p>Or in any client's JSON config:</p>
+<pre>{ "mcpServers": { "receivemail": { "url": "https://receivemail.dev/mcp" } } }</pre>
+<p>Send <code>Authorization: Bearer rmk_…</code> on the connection to use a paid key. Server card: <a href="/.well-known/mcp/server-card.json">/.well-known/mcp/server-card.json</a>.</p>
 
 <h2 id="sdks">5. SDKs and integrations</h2>
 <table>

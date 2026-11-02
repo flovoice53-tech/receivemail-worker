@@ -155,6 +155,13 @@ curl https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/messages \\
   </section>
 
   <section>
+    <h2>Use it from Claude, Cursor or any MCP client</h2>
+    <p>Remote MCP server, no key needed. Tools: <code>create_mailbox</code>, <code>wait_for_email</code>, <code>list_messages</code>.</p>
+    <pre>claude mcp add --transport http receivemail https://receivemail.dev/mcp</pre>
+    <pre>{ "mcpServers": { "receivemail": { "url": "https://receivemail.dev/mcp" } } }</pre>
+  </section>
+
+  <section>
     <h2>Need the SMS code too?</h2>
     <p>Plenty of signups ask for a phone number after the email. <a href="https://flo-voice1.com/?ref=receivemail-site">sms-florin</a> rents real UK numbers that receive the verification SMS — same idea as this, by API or in the browser, pay per code.</p>
   </section>

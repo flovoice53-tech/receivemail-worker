@@ -4,6 +4,7 @@ import { GUIDES, GUIDE_SLUGS } from "./guides.js";
 import { COMPARE, COMPARE_SLUGS } from "./compare.js";
 import { FAQ_HTML } from "./faq.js";
 import { ICON_PNG_BASE64, ICON_SVG } from "./icon.js";
+import { MCP_SERVER_CARD, handleMcp } from "./mcp.js";
 import { AI_CATALOG, DEVELOPERS_HTML, HOME_LINK_HEADER, LANDING_MD, OPENAPI, PRICING_HTML, SITE_UPDATED, WHEN_TO_USE } from "./agents.js";
 import {
   type BillingEnv,
@@ -429,7 +430,7 @@ ${
   );
 }
 
-export default {
+const worker = {
   // Incoming mail always gets stored regardless of whether a `mailboxes` row
   // exists for it — same "any address just works" behavior every disposable
   // inbox provider has. The mailboxes table only exists to let API clients
@@ -506,6 +507,14 @@ export default {
       return Response.json(OPENAPI, { headers: { "access-control-allow-origin": "*" } });
     }
 
+    if (parts.length === 1 && parts[0] === "mcp") {
+      return handleMcp(request, (req) => worker.fetch(req, env));
+    }
+
+    if (request.method === "GET" && parts.length === 3 && parts[0] === ".well-known" && parts[1] === "mcp" && parts[2] === "server-card.json") {
+      return Response.json(MCP_SERVER_CARD, { headers: { "access-control-allow-origin": "*" } });
+    }
+
     if (request.method === "GET" && parts.length === 2 && parts[0] === ".well-known" && parts[1] === "ai-catalog.json") {
       return Response.json(AI_CATALOG, { headers: { "access-control-allow-origin": "*" } });
     }
@@ -550,6 +559,7 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
 - Free, no signup, no API key. FAQ (Playwright/Cypress recipes, limits, retention): https://receivemail.dev/faq
 - Rate limited: 20 creates/min/IP, 5,000 creates/day globally.
 - Developer portal: https://receivemail.dev/developers
+- Remote MCP server: https://receivemail.dev/mcp (Streamable HTTP, no auth; tools create_mailbox, wait_for_email, list_messages). Server card: https://receivemail.dev/.well-known/mcp/server-card.json
 - OpenAPI contract: https://receivemail.dev/openapi.json · AI Catalog: https://receivemail.dev/.well-known/ai-catalog.json · Markdown: https://receivemail.dev/index.md
 
 ${WHEN_TO_USE}
@@ -929,3 +939,5 @@ ${WHEN_TO_USE}
       .run();
   },
 };
+
+export default worker;
