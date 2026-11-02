@@ -533,6 +533,11 @@ const worker = {
       return new Response("80c5e6c528195e6dc886ed6fc86c04b4", { headers: { "content-type": "text/plain;charset=utf-8" } });
     }
 
+    // mcptry.com maintainer claim for the dev.receivemail/receivemail listing.
+    if (request.method === "GET" && parts.length === 2 && parts[0] === ".well-known" && parts[1] === "mcptry-verify.txt") {
+      return new Response("mcptry-verify=Njk6VR8xQYHjs87NQwTeU9pYqqf6rx24\n", { headers: { "content-type": "text/plain;charset=utf-8" } });
+    }
+
     if (request.method === "GET" && parts.length === 1 && parts[0] === "robots.txt") {
       return new Response(
         "User-agent: *\nAllow: /\nDisallow: /mailboxes\nSitemap: https://receivemail.dev/sitemap.xml\n",
