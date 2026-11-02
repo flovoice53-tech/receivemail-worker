@@ -3,8 +3,24 @@
   "name": "dev.receivemail/receivemail",
   "title": "receivemail.dev",
   "description": "Disposable email inboxes for agents and tests: create an address, wait for the email. No signup.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "websiteUrl": "https://receivemail.dev/developers",
+  "icons": [
+    {
+      "src": "https://receivemail.dev/icon.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    },
+    {
+      "src": "https://receivemail.dev/icon.svg",
+      "mimeType": "image/svg+xml",
+      "sizes": [
+        "any"
+      ]
+    }
+  ],
   "repository": {
     "url": "https://github.com/flovoice53-tech/receivemail-worker",
     "source": "github"
