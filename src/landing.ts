@@ -156,7 +156,7 @@ curl https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/messages \\
 
   <section>
     <h2>Use it from Claude, Cursor or any MCP client</h2>
-    <p>Remote MCP server, no key needed. Tools: <code>create_mailbox</code>, <code>wait_for_email</code>, <code>list_messages</code>.</p>
+    <p>Remote MCP server, no key needed. Tools: <code>create_mailbox</code>, <code>wait_for_email</code>, <code>list_messages</code>. <a href="https://mcptry.com/servers/dev.receivemail/receivemail"><img src="https://mcptry.com/badge/dev.receivemail/receivemail" alt="mcptry status" height="20" style="vertical-align:middle"></a></p>
     <pre>claude mcp add --transport http receivemail https://receivemail.dev/mcp</pre>
     <pre>{ "mcpServers": { "receivemail": { "url": "https://receivemail.dev/mcp" } } }</pre>
   </section>

@@ -4,6 +4,8 @@ A disposable, real-receiving email address via one API call. No signup, no SMTP 
 
 Live at [receivemail.dev](https://receivemail.dev).
 
+[![mcptry](https://mcptry.com/badge/dev.receivemail/receivemail)](https://mcptry.com/servers/dev.receivemail/receivemail)
+
 ## How it works
 
 ```bash
