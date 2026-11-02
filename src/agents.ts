@@ -112,9 +112,10 @@ export const OPENAPI = {
       "Create a throwaway email address, trigger your app's verification email to it, then read or long-poll what arrives. Free without an API key; paid plans (Pro $7/mo, Pro + Webhooks $19/mo) add 24h mailboxes, higher limits, an extracted `otp` field and signed webhooks. Plain-text bodies only (no HTML or attachments); mail is kept about 24h. Rate limits: free 20 creates/min per IP and 5,000/day shared; paid 120 creates/min per key.",
     contact: { name: "receivemail.dev", email: CONTACT, url: `${BASE}/` },
     termsOfService: `${BASE}/faq`,
+    license: { name: "MIT", identifier: "MIT" },
   },
   servers: [{ url: BASE }],
-  externalDocs: { description: "Quickstart, FAQ and guides", url: `${BASE}/faq` },
+  externalDocs: { description: "Developer portal", url: `${BASE}/developers` },
   tags: [{ name: "mailboxes", description: "Create disposable mailboxes and read their messages." }],
   paths: {
     "/mailboxes": {
@@ -315,6 +316,13 @@ export const AI_CATALOG = {
       url: `${BASE}/index.md`,
     },
     {
+      identifier: "urn:receivemail.dev:docs:developers",
+      displayName: "receivemail.dev developer portal",
+      mediaType: "text/html",
+      type: "text/html",
+      url: `${BASE}/developers`,
+    },
+    {
       identifier: "urn:receivemail.dev:docs:pricing",
       displayName: "receivemail.dev pricing",
       mediaType: "text/html",
@@ -357,7 +365,7 @@ curl "https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/wait?timeou
 | \`GET /mailboxes/{address}/messages\` | Last 50 messages, newest first. Same secret. |
 | \`GET /mailboxes/{address}/wait\` | Long-poll up to \`timeout\` seconds (max 25) for a message newer than \`since\`. Same secret. |
 
-Machine-readable contract: [openapi.json](https://receivemail.dev/openapi.json).
+Machine-readable contract: [openapi.json](https://receivemail.dev/openapi.json). Developer portal (keys, auth, SDKs, errors): [developers](https://receivemail.dev/developers).
 
 ## Pricing
 
@@ -383,6 +391,140 @@ Details: [pricing](https://receivemail.dev/pricing). The API key is shown right 
 - [llms.txt](https://receivemail.dev/llms.txt)
 - Contact: ${CONTACT}
 `;
+
+// WebMCP: the landing page registers the API as tools, so an agent running in
+// a WebMCP-aware browser calls them directly instead of reading curl examples.
+// Feature-detected (navigator.modelContext in the current draft, document.
+// modelContext in earlier builds); a no-op in every other browser.
+export const WEBMCP_SCRIPT = `<script>
+(function () {
+  var mc = (navigator && navigator.modelContext) || document.modelContext;
+  if (!mc || typeof mc.registerTool !== "function") return;
+  function call(path, opts) {
+    return fetch(path, opts).then(function (r) { return r.json(); });
+  }
+  function auth(secret) { return { headers: { authorization: "Bearer " + secret } }; }
+  var tools = [
+    {
+      name: "create_mailbox",
+      description: "Create a disposable receivemail.dev email address that receives real mail. Returns address, expiresAt and secret; keep the secret to read the mailbox. Free, no signup.",
+      inputSchema: { type: "object", properties: { ttlMinutes: { type: "integer", minimum: 1, maximum: 60, description: "Lifetime in minutes, default 15." } } },
+      annotations: { readOnlyHint: false },
+      execute: function (input) {
+        var body = input && input.ttlMinutes ? JSON.stringify({ ttlMinutes: input.ttlMinutes }) : "{}";
+        return call("/mailboxes", { method: "POST", headers: { "content-type": "application/json" }, body: body });
+      }
+    },
+    {
+      name: "wait_for_email",
+      description: "Wait up to 25 seconds for the next email to a mailbox made with create_mailbox. Returns the message (from, subject, plain-text body) or timed_out: true; call again on timeout.",
+      inputSchema: { type: "object", properties: { address: { type: "string" }, secret: { type: "string" }, since: { type: "string", description: "Optional ISO 8601 time; only newer mail counts." } }, required: ["address", "secret"] },
+      annotations: { readOnlyHint: true },
+      execute: function (input) {
+        var q = "?timeout=25" + (input.since ? "&since=" + encodeURIComponent(input.since) : "");
+        return call("/mailboxes/" + encodeURIComponent(input.address) + "/wait" + q, auth(input.secret));
+      }
+    },
+    {
+      name: "list_messages",
+      description: "List the last 50 emails received by a mailbox made with create_mailbox, newest first.",
+      inputSchema: { type: "object", properties: { address: { type: "string" }, secret: { type: "string" } }, required: ["address", "secret"] },
+      annotations: { readOnlyHint: true },
+      execute: function (input) {
+        return call("/mailboxes/" + encodeURIComponent(input.address) + "/messages", auth(input.secret));
+      }
+    }
+  ];
+  tools.forEach(function (t) {
+    try { Promise.resolve(mc.registerTool(t)).catch(function () {}); } catch (e) {}
+  });
+})();
+</script>`;
+
+export const DEVELOPERS_HTML = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Developers — receivemail.dev API</title>
+<meta name="description" content="receivemail.dev developer portal: get started without a key, get a paid API key self-serve, authentication, endpoints, SDKs for Playwright, Cypress and n8n, OpenAPI spec, limits and errors.">
+<link rel="canonical" href="${BASE}/developers">
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
+<link rel="service-desc" type="application/openapi+json" href="/openapi.json">
+<script type="application/ld+json">${JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  headline: "receivemail.dev developer portal",
+  url: `${BASE}/developers`,
+  dateModified: SITE_UPDATED,
+  publisher: { "@id": `${BASE}/#organization`, "@type": "Organization", name: "receivemail.dev" },
+})}</script>
+<style>
+body{margin:0;background:#0b0d10;color:#e8eaed;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.6}
+.wrap{max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem}a{color:#5eead4}
+h1{font-size:1.8rem;margin:0 0 .5rem}h2{font-size:1.2rem;margin:2.2rem 0 .6rem}p.lede{color:#9aa4af}
+code,pre{font-family:ui-monospace,Menlo,monospace;background:#151a20;border-radius:6px}code{padding:.1rem .35rem}pre{padding:.9rem;overflow-x:auto;font-size:.85rem}
+table{width:100%;border-collapse:collapse;font-size:.92rem}th,td{text-align:left;padding:.5rem .4rem;border-bottom:1px solid #262b31;vertical-align:top}th{color:#9aa4af}
+nav a{margin-right:1rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p><a href="/">← receivemail.dev</a></p>
+<h1>Developers</h1>
+<p class="lede">Everything you need to integrate receivemail.dev: no account for the free tier, a paid key in one checkout, and a machine-readable contract.</p>
+<nav><a href="#start">Get started</a><a href="#keys">API keys</a><a href="#auth">Auth</a><a href="#endpoints">Endpoints</a><a href="#sdks">SDKs</a><a href="#limits">Limits &amp; errors</a></nav>
+
+<h2 id="start">1. Get started (no key)</h2>
+<pre>curl -X POST https://receivemail.dev/mailboxes
+# {"address":"a1b2c3d4e5f6@receivemail.dev","expiresAt":"…","secret":"…"}
+
+curl "https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/wait?timeout=25" \\
+  -H "Authorization: Bearer &lt;secret&gt;"</pre>
+
+<h2 id="keys">2. Get an API key (optional, self-serve)</h2>
+<p>Pick a plan on <a href="/pricing">the pricing page</a> and pay with Stripe. Your <code>rmk_…</code> key is shown on screen right after checkout, with a ready-to-run example; no email round trip. Pro ($7/mo) gives 24h mailboxes, 120 creates/min per key and an extracted <code>otp</code> field; Pro + Webhooks ($19/mo) also pushes each email to your HTTPS URL. To cancel or replace a lost key, email ${CONTACT} with your Stripe receipt.</p>
+
+<h2 id="auth">3. Authentication</h2>
+<table>
+<tr><th>Call</th><th>Header</th></tr>
+<tr><td><code>POST /mailboxes</code></td><td>None on the free tier, or <code>Authorization: Bearer rmk_…</code> with a paid key</td></tr>
+<tr><td>Reading a mailbox</td><td><code>Authorization: Bearer &lt;secret&gt;</code>, the secret returned when that mailbox was created</td></tr>
+</table>
+<p>Webhook deliveries carry <code>X-Receivemail-Signature</code>: hex HMAC-SHA256 of the raw body, keyed with your API key.</p>
+
+<h2 id="endpoints">4. Endpoints</h2>
+<table>
+<tr><th>Endpoint</th><th>What it does</th></tr>
+<tr><td><code>POST /mailboxes</code></td><td>Create an address. Body <code>{"ttlMinutes": n, "webhookUrl": "https://…"}</code>, both optional.</td></tr>
+<tr><td><code>GET /mailboxes/{address}</code></td><td>Mailbox metadata.</td></tr>
+<tr><td><code>GET /mailboxes/{address}/messages</code></td><td>Last 50 messages, newest first.</td></tr>
+<tr><td><code>GET /mailboxes/{address}/wait</code></td><td>Long-poll up to 25 s for a message newer than <code>since</code>.</td></tr>
+</table>
+<p>Full contract with schemas and error codes: <a href="/openapi.json">openapi.json</a> (OpenAPI 3.1). Agent-facing files: <a href="/llms.txt">llms.txt</a>, <a href="/.well-known/ai-catalog.json">ai-catalog.json</a>, <a href="/index.md">index.md</a>. In a WebMCP-aware browser the homepage also exposes <code>create_mailbox</code>, <code>wait_for_email</code> and <code>list_messages</code> as tools.</p>
+
+<h2 id="sdks">5. SDKs and integrations</h2>
+<table>
+<tr><th>Package</th><th>Use</th></tr>
+<tr><td><a href="https://www.npmjs.com/package/playwright-receivemail"><code>playwright-receivemail</code></a></td><td>Playwright helpers: create an inbox, wait for the email</td></tr>
+<tr><td><a href="https://www.npmjs.com/package/cypress-receivemail"><code>cypress-receivemail</code></a></td><td>Cypress commands: create an inbox, wait for the email</td></tr>
+<tr><td><a href="https://www.npmjs.com/package/n8n-nodes-receivemail"><code>n8n-nodes-receivemail</code></a></td><td>n8n community node</td></tr>
+</table>
+<p>Recipes: <a href="/faq">FAQ</a>, <a href="/guides/testing-verification-emails">testing verification emails in CI</a>, <a href="/guides/email-otp-webhook">otp field and webhooks</a>.</p>
+
+<h2 id="limits">6. Limits and errors</h2>
+<table>
+<tr><th>Free</th><td>20 creates/min per IP, 5,000/day shared, mailboxes up to 60 min</td></tr>
+<tr><th>Paid</th><td>120 creates/min per key, mailboxes up to 24 h</td></tr>
+<tr><th>All</th><td>Plain-text bodies only, last 50 messages, mail kept about 24 h</td></tr>
+</table>
+<p>Errors are JSON <code>{"error": "…"}</code>: 400 bad input, 401 wrong secret or inactive key, 402 webhooks need the Pro + Webhooks plan, 404 not found, 429 rate limited (retry shortly).</p>
+
+<h2>Support</h2>
+<p>${CONTACT}. Source: <a href="https://github.com/flovoice53-tech/receivemail-worker">GitHub</a>.</p>
+</div>
+</body>
+</html>`;
 
 export const PRICING_HTML = `<!doctype html>
 <html lang="en">

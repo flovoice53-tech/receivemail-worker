@@ -1,4 +1,4 @@
-import { AGENT_HEAD_LINKS } from "./agents.js";
+import { AGENT_HEAD_LINKS, WEBMCP_SCRIPT } from "./agents.js";
 
 export const LANDING_HTML = `<!doctype html>
 <html lang="en">
@@ -136,7 +136,7 @@ ${AGENT_HEAD_LINKS}
 <body>
 <div class="wrap">
   <header>
-    <div class="logo">receivemail.dev</div>
+    <div class="logo">receivemail.dev · <a href="/developers" style="color:inherit">Developers</a> · <a href="/pricing" style="color:inherit">Pricing</a></div>
     <h1>A real inbox, on demand. One API call, no signup.</h1>
     <p class="lede">Spin up a disposable email address that actually receives mail, then poll it from your test suite or your own script. Built for verification-email testing, signup-flow QA, and anywhere you'd otherwise burn a real inbox.</p>
     <span class="badge">Free — no API key required to create a mailbox</span>
@@ -211,6 +211,7 @@ curl https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/messages \\
   <section>
     <h2>Guides</h2>
     <ul class="limits">
+      <li><a href="/developers">Developers</a> — API keys, auth, endpoints, SDKs, limits and errors in one place</li>
       <li><a href="/pricing">Pricing</a> — free, Pro and Pro + Webhooks side by side</li>
       <li><a href="/openapi.json">OpenAPI spec</a> — the full API contract, machine-readable</li>
       <li><a href="/faq">FAQ</a> — Playwright and Cypress recipes, limits, retention</li>
@@ -263,5 +264,6 @@ curl https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/messages \\
   });
 })();
 </script>
+${WEBMCP_SCRIPT}
 </body>
 </html>`;

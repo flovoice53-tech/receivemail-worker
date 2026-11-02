@@ -4,7 +4,7 @@ import { GUIDES, GUIDE_SLUGS } from "./guides.js";
 import { COMPARE, COMPARE_SLUGS } from "./compare.js";
 import { FAQ_HTML } from "./faq.js";
 import { ICON_PNG_BASE64, ICON_SVG } from "./icon.js";
-import { AI_CATALOG, HOME_LINK_HEADER, LANDING_MD, OPENAPI, PRICING_HTML, SITE_UPDATED, WHEN_TO_USE } from "./agents.js";
+import { AI_CATALOG, DEVELOPERS_HTML, HOME_LINK_HEADER, LANDING_MD, OPENAPI, PRICING_HTML, SITE_UPDATED, WHEN_TO_USE } from "./agents.js";
 import {
   type BillingEnv,
   PAID_CREATES_PER_MINUTE,
@@ -510,6 +510,11 @@ export default {
       return Response.json(AI_CATALOG, { headers: { "access-control-allow-origin": "*" } });
     }
 
+    if (request.method === "GET" && parts.length === 1 && (parts[0] === "developers" || parts[0] === "docs")) {
+      if (parts[0] === "docs") return Response.redirect(`${url.origin}/developers`, 301);
+      return new Response(DEVELOPERS_HTML, { headers: { "content-type": "text/html;charset=utf-8" } });
+    }
+
     if (request.method === "GET" && parts.length === 1 && parts[0] === "pricing") {
       return new Response(PRICING_HTML, { headers: { "content-type": "text/html;charset=utf-8" } });
     }
@@ -544,6 +549,7 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
 - \`GET /mailboxes/:address/wait?timeout=25&since=<ISO>\` — long-poll: returns the newest message newer than \`since\` as soon as it arrives, or \`{"timed_out":true}\` after \`timeout\` seconds (max 25). Same secret. Call again on timeout.
 - Free, no signup, no API key. FAQ (Playwright/Cypress recipes, limits, retention): https://receivemail.dev/faq
 - Rate limited: 20 creates/min/IP, 5,000 creates/day globally.
+- Developer portal: https://receivemail.dev/developers
 - OpenAPI contract: https://receivemail.dev/openapi.json · AI Catalog: https://receivemail.dev/.well-known/ai-catalog.json · Markdown: https://receivemail.dev/index.md
 
 ${WHEN_TO_USE}
@@ -608,6 +614,7 @@ ${WHEN_TO_USE}
       const urls = [
         "https://receivemail.dev/",
         "https://receivemail.dev/pricing",
+        "https://receivemail.dev/developers",
         "https://receivemail.dev/faq",
         ...GUIDE_SLUGS.map((s) => `https://receivemail.dev/guides/${s}`),
         ...COMPARE_SLUGS.map((s) => `https://receivemail.dev/compare/${s}`),
