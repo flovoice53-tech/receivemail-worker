@@ -140,7 +140,7 @@ ${AGENT_HEAD_LINKS}
     <h1>A real inbox, on demand. One API call, no signup.</h1>
     <p class="lede">Spin up a disposable email address that actually receives mail, then poll it from your test suite or your own script. Built for verification-email testing, signup-flow QA, and anywhere you'd otherwise burn a real inbox.</p>
     <span class="badge">Free — no API key required to create a mailbox</span>
-    <p class="lede">No signup, no per-account inbox limit: throwaway addresses for tests. Need a permanent inbox for an AI agent instead? <a href="/compare/resend-inboxes-alternative">How we compare to Resend Inboxes</a>.</p>
+    <p class="lede">No signup, no account: random private addresses for tests. Need a permanent inbox for an AI agent instead? <a href="/compare/resend-inboxes-alternative">How we compare to Resend Inboxes</a>.</p>
   </header>
 
   <section>
@@ -184,7 +184,7 @@ curl https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/messages \\
     <ul class="limits">
       <li><strong>20</strong> mailbox creations / minute per IP</li>
       <li><strong>60 minutes</strong> max mailbox lifetime — this is for short-lived test flows, not a permanent inbox</li>
-      <li>Messages are pruned <strong>24h</strong> after their mailbox expires</li>
+      <li>Mail is deleted about <strong>24h</strong> after it arrives; a mailbox can't be read after it expires</li>
       <li>Any address at <code>@receivemail.dev</code> accepts mail, even ones never explicitly reserved — but only a reserved address gives you a secret to read it back</li>
     </ul>
   </section>
@@ -233,7 +233,7 @@ curl https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/messages \\
   </section>
 
   <footer>
-    Built by the same team as <a href="https://flo-voice1.com/?ref=receivemail-site">sms-florin</a> (rent a real phone number for SMS/OTP codes) — same idea, for email instead of SMS. Building an MCP server? <a href="https://mcpscan.flo-voice1.com/?ref=receivemail-site">mcp-ssrf-scan</a> catches SSRF in tool handlers.
+    Built by the maker of <a href="https://flo-voice1.com/?ref=receivemail-site">sms-florin</a> (rent a real phone number for SMS/OTP codes) — same idea, for email instead of SMS. Building an MCP server? <a href="https://mcpscan.flo-voice1.com/?ref=receivemail-site">mcp-ssrf-scan</a> catches SSRF in tool handlers.
   </footer>
 </div>
 <script>

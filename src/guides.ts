@@ -62,7 +62,7 @@ function page(opts: {
   ${opts.body}
   <footer>
     <a href="/">← receivemail.dev</a> · A disposable inbox via one API call, no signup.
-    Built by the same team as <a href="https://flo-voice1.com">sms-florin</a>.
+    Built by the maker of <a href="https://flo-voice1.com">sms-florin</a>.
   </footer>
 </div>
 </body>

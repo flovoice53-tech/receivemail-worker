@@ -29,7 +29,7 @@ const DEFAULT_TTL_MINUTES = 15;
 const MAX_TTL_MINUTES = 60;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_CREATES = 20;
-const DAILY_GLOBAL_MAX_CREATES = 5_000;
+const DAILY_GLOBAL_MAX_CREATES = 12_000; // raised from 5_000 for the 2026-11-06 Product Hunt launch; consider reverting
 const PRO_INTEREST_PER_IP_PER_HOUR = 5;
 const PRO_FEATURES = ["private_domain", "higher_limits", "longer_retention", "webhooks", "html_attachments"];
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -310,7 +310,7 @@ async function checkKeyCreateLimit(env: Env, keyHash: string): Promise<boolean> 
 
 // A second, coarser ceiling across ALL callers combined — the per-IP limit
 // above stops one abusive IP, but not many distinct IPs hammering the
-// endpoint at once. 5,000/day is generous for real usage but caps worst-case
+// endpoint at once. 12,000/day is generous for real usage but caps worst-case
 // D1 write volume (and the free tier's daily write budget) if this is ever
 // actually targeted. Bucketed by UTC calendar day.
 async function checkDailyGlobalLimit(env: Env): Promise<boolean> {
@@ -562,7 +562,7 @@ Built for the same audience as sms-florin (QA/dev, AI agents testing signup flow
 - \`GET /mailboxes/:address/messages\` — returns the last 50 messages for that address (\`from_address\`, \`subject\`, \`body_text\`, \`received_at\` in ISO 8601 UTC), authenticated with \`Authorization: Bearer <secret>\` using the mailbox's own \`secret\` from creation. Only reserved addresses can be read. Plain-text body only (no HTML, no attachments); mail is kept about 24h.
 - \`GET /mailboxes/:address/wait?timeout=25&since=<ISO>\` — long-poll: returns the newest message newer than \`since\` as soon as it arrives, or \`{"timed_out":true}\` after \`timeout\` seconds (max 25). Same secret. Call again on timeout.
 - Free, no signup, no API key. FAQ (Playwright/Cypress recipes, limits, retention): https://receivemail.dev/faq
-- Rate limited: 20 creates/min/IP, 5,000 creates/day globally.
+- Rate limited: 20 creates/min/IP, 12,000 creates/day globally.
 - Developer portal: https://receivemail.dev/developers
 - Remote MCP server: https://receivemail.dev/mcp (Streamable HTTP, no auth; tools create_mailbox, wait_for_email, list_messages). Server card: https://receivemail.dev/.well-known/mcp/server-card.json
 - OpenAPI contract: https://receivemail.dev/openapi.json · AI Catalog: https://receivemail.dev/.well-known/ai-catalog.json · Markdown: https://receivemail.dev/index.md
@@ -759,9 +759,7 @@ ${WHEN_TO_USE}
         .run();
 
       // secret is only ever returned here, at creation — the caller must
-      // hold onto it to read this mailbox's messages later. `tip` is an extra
-      // field existing clients ignore; the ref tags clicks from the API apart
-      // from clicks on the landing page in sms-florin's attribution.
+      // hold onto it to read this mailbox's messages later.
       if (paidKey) {
         return Response.json({ address, expiresAt, secret, tier: paidKey.tier, webhookUrl }, { status: 201 });
       }
@@ -770,8 +768,7 @@ ${WHEN_TO_USE}
           address,
           expiresAt,
           secret,
-          tip: "Need the SMS verification code too? Real UK numbers: https://flo-voice1.com/?ref=receivemail-api",
-          // Same "extra field, ignored by existing clients" pattern as `tip`.
+          // Extra field, ignored by existing clients.
           // Only anonymous callers see it — paid responses return early above.
           upgrade: ttlCapped
             ? `ttlMinutes capped at ${MAX_TTL_MINUTES} on the free tier. Pro ($7/mo) keeps mailboxes up to 24h: ${PRO_URL}`

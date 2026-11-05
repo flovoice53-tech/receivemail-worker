@@ -164,7 +164,7 @@ ${faqJsonLd(opts.faq)}
   ${faqBlock(opts.faq)}
   <footer>
     <a href="/">← receivemail.dev</a> · A disposable inbox via one API call, no signup.
-    Built by the same team as <a href="https://flo-voice1.com">sms-florin</a>.
+    Built by the maker of <a href="https://flo-voice1.com">sms-florin</a>.
   </footer>
 </div>
 </body>
@@ -383,7 +383,7 @@ const MAILOSAUR_ALTERNATIVE = page({
     },
     {
       q: "Is there an alternative that also tests SMS?",
-      a: `None of the free email tools above receive SMS. For real UK numbers that receive verification texts, see <a href="https://flo-voice1.com">sms-florin</a>, from the same team as receivemail.dev.`,
+      a: `None of the free email tools above receive SMS. For real UK numbers that receive verification texts, see <a href="https://flo-voice1.com">sms-florin</a>, from the maker of receivemail.dev.`,
     },
   ],
   body: `
@@ -548,7 +548,7 @@ const RESEND_INBOXES_ALTERNATIVE = page({
   seoTitle: "Resend Inboxes Alternative for Tests | receivemail.dev",
   title: "Resend Inboxes vs receivemail.dev — permanent agent inbox or throwaway test inbox",
   description:
-    "Resend Inboxes gives an AI agent a permanent address it can send and receive from. receivemail.dev gives you throwaway, receive-only addresses for tests — no signup, no per-account inbox limit.",
+    "Resend Inboxes gives an AI agent a permanent address it can send and receive from. receivemail.dev gives you throwaway, receive-only addresses for tests — no signup, no account.",
   exclude: "",
   updated: { iso: "2026-10-31", label: "31 October 2026" },
   faq: [

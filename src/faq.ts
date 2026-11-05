@@ -76,11 +76,11 @@ const link = body_text.match(/https:\\/\\/[^\\s"]+\\/verify[^\\s"]*/)?.[0];</pre
   {
     q: "What are the limits?",
     a: `<ul>
-<li>20 new mailboxes per minute per IP address, and 5,000 per day across the service.</li>
+<li>20 new mailboxes per minute per IP address, and 12,000 per day across the service.</li>
 <li>The last 50 messages per address are returned.</li>
 <li>Plain-text body only: no HTML body and no attachments.</li>
 </ul>`,
-    text: "20 new mailboxes per minute per IP and 5,000 per day across the service; the last 50 messages per address; plain-text body only, with no HTML body and no attachments.",
+    text: "20 new mailboxes per minute per IP and 12,000 per day across the service; the last 50 messages per address; plain-text body only, with no HTML body and no attachments.",
   },
   {
     q: "Can someone else read my test emails?",

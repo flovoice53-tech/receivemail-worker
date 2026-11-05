@@ -32,7 +32,7 @@ The `secret` returned at creation is the only credential — hold onto it, there
 
 ## Limits
 
-- 20 mailbox creations/minute per IP, 5,000/day globally.
+- 20 mailbox creations/minute per IP, 12,000/day globally.
 - 60 minutes max mailbox lifetime — this is for short-lived test flows, not a permanent inbox.
 - Messages are pruned 24h after their mailbox expires.
 

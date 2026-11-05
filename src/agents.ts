@@ -21,7 +21,7 @@ const SAME_AS = [
 ];
 
 const OFFERS = [
-  { name: "Free", price: "0", description: "No signup or API key. Mailboxes up to 60 minutes, 20 creates/min per IP, 5,000 creates/day shared.", url: `${BASE}/pricing` },
+  { name: "Free", price: "0", description: "No signup or API key. Mailboxes up to 60 minutes, 20 creates/min per IP, 12,000 creates/day shared.", url: `${BASE}/pricing` },
   { name: "Pro", price: "7", description: "API key. Mailboxes up to 24 hours, 120 creates/min per key, verification code extracted in an otp field.", url: PRO_LINK },
   { name: "Pro + Webhooks", price: "19", description: "Everything in Pro, plus every incoming email POSTed to your HTTPS webhook, HMAC-signed.", url: WEBHOOKS_LINK },
 ];
@@ -110,7 +110,7 @@ export const OPENAPI = {
     version: "1.0.0",
     summary: "Disposable email inboxes for tests, one API call, no signup.",
     description:
-      "Create a throwaway email address, trigger your app's verification email to it, then read or long-poll what arrives. Free without an API key; paid plans (Pro $7/mo, Pro + Webhooks $19/mo) add 24h mailboxes, higher limits, an extracted `otp` field and signed webhooks. Plain-text bodies only (no HTML or attachments); mail is kept about 24h. Rate limits: free 20 creates/min per IP and 5,000/day shared; paid 120 creates/min per key.",
+      "Create a throwaway email address, trigger your app's verification email to it, then read or long-poll what arrives. Free without an API key; paid plans (Pro $7/mo, Pro + Webhooks $19/mo) add 24h mailboxes, higher limits, an extracted `otp` field and signed webhooks. Plain-text bodies only (no HTML or attachments); mail is kept about 24h. Rate limits: free 20 creates/min per IP and 12,000/day shared; paid 120 creates/min per key.",
     contact: { name: "receivemail.dev", email: CONTACT, url: `${BASE}/` },
     termsOfService: `${BASE}/faq`,
     license: { name: "MIT", identifier: "MIT" },
@@ -263,7 +263,7 @@ export const OPENAPI = {
           secret: { type: "string", description: "Bearer token for reading this mailbox. Only returned here." },
           tier: { type: "string", enum: ["pro", "webhooks"], description: "Paid keys only." },
           webhookUrl: { type: ["string", "null"], description: "Paid keys only." },
-          tip: { type: "string", description: "Free tier only: informational." },
+          tip: { type: "string", description: "Optional, free tier only: informational. Not currently sent." },
           upgrade: { type: "string", description: "Free tier only: informational." },
         },
       },
@@ -385,7 +385,7 @@ Machine-readable contract: [openapi.json](https://receivemail.dev/openapi.json).
 
 | Plan | Price | What you get |
 |---|---|---|
-| Free | $0 | No signup or key. Mailboxes up to 60 min, 20 creates/min per IP, 5,000 creates/day shared. |
+| Free | $0 | No signup or key. Mailboxes up to 60 min, 20 creates/min per IP, 12,000 creates/day shared. |
 | Pro | $7/month | API key. Mailboxes up to 24h, 120 creates/min per key, \`otp\` field with the extracted code. |
 | Pro + Webhooks | $19/month | Everything in Pro, plus each email POSTed to your HTTPS webhook, HMAC-signed. |
 
@@ -535,7 +535,7 @@ curl "https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/wait?timeou
 
 <h2 id="limits">6. Limits and errors</h2>
 <table>
-<tr><th>Free</th><td>20 creates/min per IP, 5,000/day shared, mailboxes up to 60 min</td></tr>
+<tr><th>Free</th><td>20 creates/min per IP, 12,000/day shared, mailboxes up to 60 min</td></tr>
 <tr><th>Paid</th><td>120 creates/min per key, mailboxes up to 24 h</td></tr>
 <tr><th>All</th><td>Plain-text bodies only, last 50 messages, mail kept about 24 h</td></tr>
 </table>
@@ -584,7 +584,7 @@ code{font-family:ui-monospace,Menlo,monospace;background:#151a20;border-radius:6
 <table>
 <thead><tr><th>Plan</th><th>Price</th><th>Mailbox lifetime</th><th>Create limit</th><th>Extras</th></tr></thead>
 <tbody>
-<tr><td>Free</td><td>$0</td><td>up to 60 min</td><td>20/min per IP, 5,000/day shared</td><td>Read with <code>/messages</code> or long-poll <code>/wait</code></td></tr>
+<tr><td>Free</td><td>$0</td><td>up to 60 min</td><td>20/min per IP, 12,000/day shared</td><td>Read with <code>/messages</code> or long-poll <code>/wait</code></td></tr>
 <tr><td>Pro</td><td>$7/month</td><td>up to 24 hours</td><td>120/min per key</td><td>Verification code extracted in an <code>otp</code> field</td></tr>
 <tr><td>Pro + Webhooks</td><td>$19/month</td><td>up to 24 hours</td><td>120/min per key</td><td>Everything in Pro, plus each email POSTed to your HTTPS URL, HMAC-signed</td></tr>
 </tbody>
