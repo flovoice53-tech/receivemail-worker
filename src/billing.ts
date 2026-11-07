@@ -21,6 +21,12 @@ export const PAYMENT_LINK_TIERS: Record<string, Tier> = {
   plink_1UR1zCEX894ikaKTsuVH9wgr: "webhooks", // $19/mo — buy.stripe.com/fZufZh4CO7MNdAAgaKcZa01
 };
 
+// Stripe-hosted customer portal login (customer enters their billing email,
+// Stripe sends a magic link). Self-serve cancel without a Stripe secret key in
+// the Worker. The portal is account-wide, so it serves every product's
+// subscriptions on this Stripe account.
+export const BILLING_PORTAL_URL = "https://billing.stripe.com/p/login/dRm7sL0my8QRgMMf6GcZa00";
+
 export const PAID_MAX_TTL_MINUTES = 24 * 60;
 export const PAID_CREATES_PER_MINUTE = 120;
 const STRIPE_TOLERANCE_SECONDS = 300;

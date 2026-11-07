@@ -8,6 +8,7 @@ import { MCP_SERVER_CARD, handleMcp } from "./mcp.js";
 import { AI_CATALOG, DEVELOPERS_HTML, HOME_LINK_HEADER, LANDING_MD, OPENAPI, PRICING_HTML, SITE_UPDATED, WHEN_TO_USE } from "./agents.js";
 import {
   type BillingEnv,
+  BILLING_PORTAL_URL,
   PAID_CREATES_PER_MINUTE,
   PAID_MAX_TTL_MINUTES,
   deliverWebhook,
@@ -31,6 +32,48 @@ const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_CREATES = 20;
 const DAILY_GLOBAL_MAX_CREATES = 12_000; // raised from 5_000 for the 2026-11-06 Product Hunt launch; consider reverting
 const PRO_INTEREST_PER_IP_PER_HOUR = 5;
+const REDDIT_CODE_SUBJECT = /reddit verification/i;
+const BOT_UA = /bot|crawl|spider|slurp|preview|monitor|uptime|curl|wget|python|node-fetch|go-http|axios/i;
+const STRIPE_LINKS = {
+  pro: "https://buy.stripe.com/dRm7sL0my8QRgMMf6GcZa00",
+  webhooks: "https://buy.stripe.com/fZufZh4CO7MNdAAgaKcZa01",
+} as const;
+
+// Where a visit came from: an explicit ?ref= wins (we put it on our own links),
+// then the Referer host. Only a coarse label is stored, never the URL.
+function funnelSource(request: Request, url: URL): string {
+  const ref = url.searchParams.get("ref");
+  if (ref && /^[a-z0-9_-]{1,24}$/i.test(ref)) return `ref:${ref.toLowerCase()}`;
+  let host = "";
+  try {
+    host = new URL(request.headers.get("referer") ?? "").hostname.toLowerCase();
+  } catch {
+    return "direct";
+  }
+  if (host.endsWith("receivemail.dev")) return "internal";
+  if (host.includes("producthunt.com")) return "producthunt";
+  if (host.includes("npmjs.com")) return "npm";
+  if (host.includes("github.com")) return "github";
+  if (host.includes("gitlab.com")) return "gitlab";
+  if (/mcprush|glama|smithery|pulsemcp|modelcontextprotocol/.test(host)) return "mcp";
+  if (/google\.|bing\.|duckduckgo|yahoo\.|brave\.|ecosia/.test(host)) return "search";
+  return "other";
+}
+
+// Fire-and-forget: a metrics failure must never break a page or a redirect.
+function trackFunnel(env: Env, ctx: ExecutionContext, request: Request, url: URL, event: string): void {
+  if (BOT_UA.test(request.headers.get("user-agent") ?? "")) return;
+  const day = new Date().toISOString().slice(0, 10);
+  ctx.waitUntil(
+    env.DB.prepare(
+      `INSERT INTO funnel_daily (day, event, source, n) VALUES (?, ?, ?, 1)
+       ON CONFLICT(day, event, source) DO UPDATE SET n = n + 1`,
+    )
+      .bind(day, event, funnelSource(request, url))
+      .run()
+      .catch((err) => console.error("funnel track failed", err)),
+  );
+}
 const PRO_FEATURES = ["private_domain", "higher_limits", "longer_retention", "webhooks", "html_attachments"];
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Our own health checks and self-tests send mail from these — excluded from
@@ -237,6 +280,10 @@ async function recordDailyStats(env: Env, day: string): Promise<void> {
   )
     .bind(day, ...ownArgs)
     .first<{ n: number }>();
+  // Mail refused at the door is never stored, so add its counter (see email()).
+  const blockedReddit = await env.DB.prepare(`SELECT count FROM rate_limits WHERE bucket_key = ?`)
+    .bind(`blocked:reddit:${day}`)
+    .first<{ count: number }>();
 
   await env.DB.prepare(
     `INSERT OR REPLACE INTO daily_stats
@@ -253,7 +300,7 @@ async function recordDailyStats(env: Env, day: string): Promise<void> {
       JSON.stringify(senders.map((s) => [s.domain, s.n])),
       suspectedBotMailboxes,
       suspectedBotExternalEmails,
-      redditCodes?.n ?? 0,
+      (redditCodes?.n ?? 0) + (blockedReddit?.count ?? 0),
     )
     .run();
 }
@@ -426,7 +473,7 @@ ${
     ? `<p>Every email that lands in that mailbox is POSTed to your <code>webhookUrl</code> as JSON: <code>{address, from, subject, bodyText, otp, receivedAt}</code>. Verify it's from us: <code>X-Receivemail-Signature</code> is the hex HMAC-SHA256 of the raw request body, keyed with your API key.</p>`
     : `<p>Want each email pushed to your own URL instead of polling? That's the Pro + Webhooks plan on <a href="/#pro">the pricing section</a>.</p>`
 }
-<p>To cancel any time, email flovoice53@gmail.com — the key stops working when the subscription ends.</p>`,
+<p>To cancel any time, <a href="${BILLING_PORTAL_URL}">open the billing portal</a> and enter your billing email — the key stops working when the subscription ends.</p>`,
   );
 }
 
@@ -446,6 +493,22 @@ const worker = {
     const mailbox = message.to.toLowerCase();
     const subject = parsed.subject ?? null;
     const bodyText = parsed.text ?? null;
+
+    // Reddit verification codes were ~90% of external mail (2026-10-19, ~200/day
+    // from ~88 IPs on 2026-11-07): bulk Reddit account creation, not developers
+    // testing signup flows. Per-IP limits can't stop it (~16 inboxes per IP), so
+    // refuse the mail itself. It is counted in rate_limits so reddit_code_emails
+    // in daily_stats still shows how many tried.
+    if (subject && REDDIT_CODE_SUBJECT.test(subject)) {
+      await env.DB.prepare(
+        `INSERT INTO rate_limits (bucket_key, window_start, count) VALUES (?, ?, 1)
+         ON CONFLICT(bucket_key) DO UPDATE SET count = count + 1`,
+      )
+        .bind(`blocked:reddit:${new Date().toISOString().slice(0, 10)}`, Date.now())
+        .run();
+      message.setReject("550 5.7.1 receivemail.dev does not accept Reddit verification mail");
+      return;
+    }
 
     await env.DB.prepare(
       `INSERT INTO emails (mailbox, from_address, subject, body_text) VALUES (?, ?, ?, ?)`,
@@ -479,7 +542,7 @@ const worker = {
     }
   },
 
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const parts = url.pathname.split("/").filter(Boolean);
 
@@ -490,6 +553,7 @@ const worker = {
       const wantsMarkdown =
         /\btext\/markdown\b/i.test(request.headers.get("accept") ?? "") ||
         /\b(ChatGPT-User|Claude-User|Perplexity-User)\b/i.test(request.headers.get("user-agent") ?? "");
+      trackFunnel(env, ctx, request, url, "view_landing");
       return new Response(wantsMarkdown ? LANDING_MD : LANDING_HTML, {
         headers: {
           "content-type": wantsMarkdown ? "text/markdown;charset=utf-8" : "text/html;charset=utf-8",
@@ -508,7 +572,7 @@ const worker = {
     }
 
     if (parts.length === 1 && parts[0] === "mcp") {
-      return handleMcp(request, (req) => worker.fetch(req, env));
+      return handleMcp(request, (req) => worker.fetch(req, env, ctx));
     }
 
     if (request.method === "GET" && parts.length === 3 && parts[0] === ".well-known" && parts[1] === "mcp" && parts[2] === "server-card.json") {
@@ -525,6 +589,7 @@ const worker = {
     }
 
     if (request.method === "GET" && parts.length === 1 && parts[0] === "pricing") {
+      trackFunnel(env, ctx, request, url, "view_pricing");
       return new Response(PRICING_HTML, { headers: { "content-type": "text/html;charset=utf-8" } });
     }
 
@@ -621,7 +686,15 @@ ${WHEN_TO_USE}
     // webhook can land a few seconds after the redirect, so until the row
     // exists the page refreshes itself. Shown for 24h after purchase; after
     // that a stale/leaked URL stops revealing the key.
+    // /go/pro and /go/webhooks: the Subscribe buttons point here so a click on
+    // checkout is counted, then 302 to the Stripe Payment Link.
+    if (request.method === "GET" && parts.length === 2 && parts[0] === "go" && (parts[1] === "pro" || parts[1] === "webhooks")) {
+      trackFunnel(env, ctx, request, url, `go_${parts[1]}`);
+      return Response.redirect(STRIPE_LINKS[parts[1]], 302);
+    }
+
     if (request.method === "GET" && parts.length === 2 && parts[0] === "pro" && parts[1] === "thanks") {
+      trackFunnel(env, ctx, request, url, "thanks");
       return proThanksPage(env, url.searchParams.get("session_id"));
     }
 
@@ -935,7 +1008,8 @@ ${WHEN_TO_USE}
     // 2 days as a safety margin, not 1 hour like the per-IP ones above.
     const dailyRateLimitCutoff = Date.now() - 2 * 24 * 60 * 60_000;
     await env.DB.prepare(
-      `DELETE FROM rate_limits WHERE bucket_key LIKE 'create:daily:%' AND window_start < ?`,
+      `DELETE FROM rate_limits
+       WHERE (bucket_key LIKE 'create:daily:%' OR bucket_key LIKE 'blocked:reddit:%') AND window_start < ?`,
     )
       .bind(dailyRateLimitCutoff)
       .run();

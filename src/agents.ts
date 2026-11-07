@@ -4,12 +4,14 @@
 // follows the AgentReady spec) scored the site 46/100, mostly for missing
 // these. Keep the numbers here in step with index.ts / billing.ts.
 
+import { BILLING_PORTAL_URL } from "./billing.js";
+
 const BASE = "https://receivemail.dev";
 const PRO_LINK = "https://buy.stripe.com/dRm7sL0my8QRgMMf6GcZa00";
 const WEBHOOKS_LINK = "https://buy.stripe.com/fZufZh4CO7MNdAAgaKcZa01";
 const CONTACT = "flovoice53@gmail.com";
 // Bump when any page listed in the sitemap changes meaningfully.
-export const SITE_UPDATED = "2026-11-02";
+export const SITE_UPDATED = "2026-11-07";
 
 const SAME_AS = [
   "https://github.com/flovoice53-tech/receivemail-worker",
@@ -497,7 +499,7 @@ curl "https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/wait?timeou
   -H "Authorization: Bearer &lt;secret&gt;"</pre>
 
 <h2 id="keys">2. Get an API key (optional, self-serve)</h2>
-<p>Pick a plan on <a href="/pricing">the pricing page</a> and pay with Stripe. Your <code>rmk_…</code> key is shown on screen right after checkout, with a ready-to-run example; no email round trip. Pro ($7/mo) gives 24h mailboxes, 120 creates/min per key and an extracted <code>otp</code> field; Pro + Webhooks ($19/mo) also pushes each email to your HTTPS URL. To cancel or replace a lost key, email ${CONTACT} with your Stripe receipt.</p>
+<p>Pick a plan on <a href="/pricing">the pricing page</a> and pay with Stripe. Your <code>rmk_…</code> key is shown on screen right after checkout, with a ready-to-run example; no email round trip. Pro ($7/mo) gives 24h mailboxes, 120 creates/min per key and an extracted <code>otp</code> field; Pro + Webhooks ($19/mo) also pushes each email to your HTTPS URL. To cancel, use the <a href="${BILLING_PORTAL_URL}">billing portal</a>; to replace a lost key, email ${CONTACT} with your Stripe receipt.</p>
 
 <h2 id="auth">3. Authentication</h2>
 <table>
@@ -590,8 +592,8 @@ code{font-family:ui-monospace,Menlo,monospace;background:#151a20;border-radius:6
 </tbody>
 </table>
 <p>All plans: plain-text bodies (no HTML or attachments), messages kept about 24 hours, same API (<a href="/openapi.json">OpenAPI</a>).</p>
-<p><a class="btn" href="${PRO_LINK}">Subscribe to Pro — $7/mo</a><a class="btn" href="${WEBHOOKS_LINK}">Subscribe to Pro + Webhooks — $19/mo</a></p>
-<p>Send the key as <code>Authorization: Bearer rmk_…</code> on <code>POST /mailboxes</code>. To cancel, email ${CONTACT}; the key stops working when the subscription ends.</p>
+<p><a class="btn" href="/go/pro">Subscribe to Pro — $7/mo</a><a class="btn" href="/go/webhooks">Subscribe to Pro + Webhooks — $19/mo</a></p>
+<p>Send the key as <code>Authorization: Bearer rmk_…</code> on <code>POST /mailboxes</code>. To cancel, use the <a href="${BILLING_PORTAL_URL}">billing portal</a>; the key stops working when the subscription ends.</p>
 </div>
 </body>
 </html>`;

@@ -127,6 +127,8 @@ ${AGENT_HEAD_LINKS}
   .pro-box button:disabled { opacity: 0.6; cursor: default; }
   .pro-status { margin: 0.3rem 0 0; font-size: 0.92rem; color: var(--accent); }
   [hidden] { display: none !important; }
+  .ph-bar { background: #151a20; border-bottom: 1px solid #263038; text-align: center; padding: 0.55rem 1rem; font-size: 0.9rem; }
+  .ph-bar a { color: var(--accent); font-weight: 600; text-decoration: none; }
   @media (prefers-reduced-motion: no-preference) {
     .wrap { animation: fade-in 0.4s ease-out; }
   }
@@ -134,6 +136,8 @@ ${AGENT_HEAD_LINKS}
 </style>
 </head>
 <body>
+<div class="ph-bar" id="ph-bar">Live on Product Hunt today. <a href="https://www.producthunt.com/products/receivemail-dev?launch=receivemail-dev-2" rel="noopener">Tell us what to ship next →</a></div>
+<script>if (Date.now() > Date.UTC(2026, 10, 7, 8, 1)) document.getElementById("ph-bar").hidden = true;</script>
 <div class="wrap">
   <header>
     <div class="logo">receivemail.dev · <a href="/developers" style="color:inherit">Developers</a> · <a href="/pricing" style="color:inherit">Pricing</a></div>
@@ -194,11 +198,11 @@ curl https://receivemail.dev/mailboxes/a1b2c3d4e5f6@receivemail.dev/messages \\
     <p style="color:var(--text-dim)">The free API stays free. Paid plans give you an API key <strong>instantly after checkout</strong> — send it as <code>Authorization: Bearer rmk_…</code> on <code>POST /mailboxes</code>.</p>
     <p style="color:var(--text-dim)"><strong>Pro — $7/month:</strong> mailboxes that live up to 24h (vs. 60 min free), 120 creates/min per key instead of the per-IP limit (for CI with many parallel jobs), and every message comes back with the verification code already extracted in an <code>otp</code> field — no regex in your tests.</p>
     <div class="pro-row" style="margin-bottom:1.1rem">
-      <a href="https://buy.stripe.com/dRm7sL0my8QRgMMf6GcZa00" style="display:inline-block;background:var(--accent);color:#0b0d10;border-radius:8px;padding:0.7rem 1.3rem;font-weight:600;text-decoration:none;">Subscribe to Pro — $7/mo →</a>
+      <a href="/go/pro" style="display:inline-block;background:var(--accent);color:#0b0d10;border-radius:8px;padding:0.7rem 1.3rem;font-weight:600;text-decoration:none;">Subscribe to Pro — $7/mo →</a>
     </div>
     <p style="color:var(--text-dim)"><strong>Pro + Webhooks — $19/month:</strong> everything in Pro, plus pass a <code>webhookUrl</code> when you create a mailbox and every email that lands is POSTed to you the moment it arrives — <code>{address, from, subject, bodyText, otp, receivedAt}</code>, HMAC-signed with your key. Stop polling.</p>
     <div class="pro-row" style="margin-bottom:1.1rem">
-      <a href="https://buy.stripe.com/fZufZh4CO7MNdAAgaKcZa01" style="display:inline-block;background:var(--accent);color:#0b0d10;border-radius:8px;padding:0.7rem 1.3rem;font-weight:600;text-decoration:none;">Subscribe to Pro + Webhooks — $19/mo →</a>
+      <a href="/go/webhooks" style="display:inline-block;background:var(--accent);color:#0b0d10;border-radius:8px;padding:0.7rem 1.3rem;font-weight:600;text-decoration:none;">Subscribe to Pro + Webhooks — $19/mo →</a>
     </div>
     <p style="color:var(--text-dim);font-size:0.9rem">Want something else — private domain, HTML attachments? Tell us what you'd actually use, free to ask:</p>
     <form id="pro-form" class="pro-box">
